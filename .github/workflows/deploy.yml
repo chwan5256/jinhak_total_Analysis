@@ -1,0 +1,77 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+    paths-ignore:
+      - 'README.md'
+      - 'CHANGELOG.md'
+      - 'docs/**'
+      - '.gitignore'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: 인라인 스크립트 문법 검사
+        run: |
+          node - <<'JS'
+          const fs = require('fs');
+          const html = fs.readFileSync('index.html', 'utf8');
+          const i = html.lastIndexOf('<script>\n"use strict";');
+          const j = html.lastIndexOf('</script>');
+          if (i < 0 || j < 0) { console.error('앱 스크립트 블록을 찾지 못했습니다.'); process.exit(1); }
+          fs.writeFileSync('/tmp/app.js', html.slice(i + 8, j));
+          JS
+          node --check /tmp/app.js
+          echo "문법 검사 통과"
+
+      - name: 단일 파일 원칙 검사 (로컬 참조 금지)
+        run: |
+          if grep -Eq '(src|href)="(\./)?[A-Za-z0-9_./-]+\.(js|css)"' index.html; then
+            echo "로컬 js/css 파일을 참조하고 있습니다. 이 앱은 단일 파일이어야 합니다."
+            grep -nE '(src|href)="(\./)?[A-Za-z0-9_./-]+\.(js|css)"' index.html
+            exit 1
+          fi
+          echo "단일 파일 원칙 통과"
+
+      - name: 버전 표기 일치 검사
+        run: |
+          FILE_VER=$(grep -oP 'const VERSION = "\K[0-9.]+' index.html | head -1)
+          TITLE_VER=$(grep -oP '<title>.*ver\.\K[0-9.]+' index.html | head -1)
+          echo "VERSION=$FILE_VER  TITLE=$TITLE_VER"
+          if [ "$FILE_VER" != "$TITLE_VER" ]; then
+            echo "index.html의 VERSION 상수와 <title> 버전이 다릅니다."
+            exit 1
+          fi
+
+  deploy:
+    needs: verify
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: '.'
+      - id: deployment
+        uses: actions/deploy-pages@v4

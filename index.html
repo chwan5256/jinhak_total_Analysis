@@ -1,0 +1,1808 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="나이스 학교생활기록부를 브라우저 내부에서만 분석하여 학업·진로·공동체 역량 흐름과 전공 적합성을 진단하는 고3 담임 상담 도구.">
+  <meta name="robots" content="noindex, nofollow">
+  <title>생활기록부 역량 흐름 분석기 ver.2026.4</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+
+  <script>
+    // 학교망에서 CDN이 차단되면 tailwind 전역이 없다. 죽지 않고 넘어가도록 방어.
+    if (typeof tailwind !== "undefined") tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: { sans: ['"Noto Sans KR"', 'sans-serif'] },
+          colors: {
+            brand: { 50:'#f0f7ff', 100:'#e0effe', 500:'#2563eb', 600:'#1d4ed8', 700:'#1e40af' }
+          }
+        }
+      }
+    };
+  </script>
+
+  <style>
+    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
+
+    .drag-over { background-color: #e0e7ff !important; outline: 2px dashed #4f46e5 !important; outline-offset: -2px; }
+
+    .sentence-chip { cursor: grab; user-select: none; transition: box-shadow .15s, transform .15s, opacity .15s; }
+    .sentence-chip:active { cursor: grabbing; opacity: .65; transform: scale(.98); }
+    .sentence-chip:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
+    .sentence-chip.is-selected { box-shadow: 0 0 0 2px #4f46e5; }
+
+    .conf-bar { height: 3px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .conf-bar > i { display: block; height: 100%; border-radius: 999px; }
+
+    .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+
+    /* ---------- Print / PDF report layout ---------- */
+    @page { size: A4 portrait; margin: 12mm 10mm; }
+
+    @media print {
+      .no-print { display: none !important; }
+      .print-only { display: block !important; }
+      body { background: #fff !important; font-size: 9.5pt; }
+      main { max-width: none !important; padding: 0 !important; }
+      .print-shadow-none, .bg-white { box-shadow: none !important; }
+      .page-break { page-break-inside: avoid; break-inside: avoid; }
+      .page-break-before { page-break-before: always; break-before: page; }
+      .sentence-chip { break-inside: avoid; }
+      a[href]:after { content: ""; }
+      .print-compact > * + * { margin-top: 4px !important; }
+      #activity-rows-container .grid { break-inside: avoid; }
+    }
+    .print-only { display: none; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #f1f5f9; }
+    ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+    ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+
+    @media (prefers-reduced-motion: reduce) {
+      * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
+    }
+  </style>
+</head>
+<body class="text-slate-800 min-h-screen flex flex-col">
+
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
+          <i class="fa-solid fa-diagram-project"></i>
+        </div>
+        <div>
+          <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">생활기록부 역량 흐름 분석기</h1>
+          <p class="text-[11px] text-slate-500 leading-tight">
+            <span data-app-version>ver.2026.4</span> · 학종 평가요소 3역량 10항목 기준 · 100% 브라우저 로컬 분석
+          </p>
+        </div>
+      </div>
+      <div class="flex items-center space-x-2">
+        <button id="btn-load-sample" class="px-3.5 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl transition-colors flex items-center space-x-1.5">
+          <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i>
+          <span>체험용 샘플 불러오기</span>
+        </button>
+        <button id="btn-reset-all" class="hidden px-3.5 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl transition-colors flex items-center space-x-1.5">
+          <i class="fa-solid fa-rotate-left"></i>
+          <span>새로 분석하기</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+
+    <!-- ============ UPLOAD HUB ============ -->
+    <div id="upload-hub" class="space-y-6">
+      <div class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-blue-200/80 rounded-2xl p-4 sm:p-5 shadow-sm">
+        <div class="flex items-start space-x-3.5">
+          <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+            <i class="fa-solid fa-shield-halved text-sm"></i>
+          </div>
+          <div class="space-y-1">
+            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-1.5">
+              <span>100% 로컬 프라이버시 보호 보장</span>
+              <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">외부 유출 차단</span>
+            </h2>
+            <p class="text-xs text-slate-600 leading-relaxed">
+              업로드한 생활기록부는 <strong>외부 서버나 데이터베이스로 절대 전송되지 않습니다.</strong>
+              브라우저 로컬 메모리에서만 파싱되며, 페이지를 닫거나 새로고침하면 모든 정보가 즉시 소멸합니다.
+              저장 기능을 의도적으로 두지 않은 이유이므로, 결과는 <strong>CSV·요약시트·인쇄</strong>로 내보내 주세요.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="border-b border-slate-200 bg-slate-50/70 px-4 sm:px-6 py-3 flex flex-wrap gap-2" role="tablist">
+          <button id="tab-btn-pdf" role="tab" aria-selected="true" aria-controls="tab-pane-pdf"
+            class="px-4 py-2 text-sm font-bold rounded-xl bg-white text-blue-600 shadow-sm border border-slate-200/70 transition-all flex items-center space-x-2">
+            <i class="fa-solid fa-file-pdf text-rose-500"></i>
+            <span>나이스 생기부 PDF 업로드</span>
+          </button>
+          <button id="tab-btn-text" role="tab" aria-selected="false" aria-controls="tab-pane-text"
+            class="px-4 py-2 text-sm font-semibold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center space-x-2">
+            <i class="fa-solid fa-paste text-indigo-500"></i>
+            <span>직접 텍스트 붙여넣기 (스캔본/HWP 복사본)</span>
+          </button>
+        </div>
+
+        <div id="tab-pane-pdf" role="tabpanel" class="p-6 sm:p-10">
+          <div id="drop-zone" tabindex="0" role="button" aria-label="PDF 파일 선택 또는 드래그"
+            class="border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-4">
+            <div class="w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl shadow-inner">
+              <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <div class="space-y-1">
+              <p class="text-base font-bold text-slate-800">나이스 학교생활세부사항기록부(II) PDF를 드래그해 놓으세요</p>
+              <p class="text-xs text-slate-500">또는 클릭하여 파일을 선택할 수 있습니다. (Enter/Space 키로도 열립니다)</p>
+            </div>
+            <input type="file" id="pdf-file-input" accept="application/pdf" class="hidden">
+            <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600"><i class="fa-solid fa-check text-emerald-500 mr-1.5"></i>정부24 발급본 호환</span>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600"><i class="fa-solid fa-check text-emerald-500 mr-1.5"></i>나이스 대국민서비스 호환</span>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600"><i class="fa-solid fa-check text-emerald-500 mr-1.5"></i>스캔본 브라우저 OCR 지원</span>
+              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-wand-sparkles mr-1.5"></i>좌표 기반 줄바꿈 복원</span>
+            </div>
+          </div>
+        </div>
+
+        <div id="tab-pane-text" role="tabpanel" class="p-6 sm:p-8 hidden space-y-4">
+          <div class="space-y-1">
+            <label for="direct-text-input" class="block text-sm font-bold text-slate-800">생활기록부 텍스트 직접 입력</label>
+            <p class="text-xs text-slate-500">PDF에서 글자가 긁히지 않거나, 한글(HWP) 파일 또는 복사해둔 세특/창체 문장을 그대로 붙여넣어 주세요.</p>
+          </div>
+          <textarea id="direct-text-input" rows="10" placeholder="예시:
+[1학년]
+수학: 다항식의 연산과 복소수의 성질을 기하학적으로 해석하며 프랙탈 차원을 스스로 유도함.
+[2학년]
+물리학I: 전자기 유도 현상을 심화 탐구하며 패러데이 법칙 실험에서 발생한 오차 원인을 분석함.
+[진로활동]
+기계공학 자율주행 모빌리티의 에너지 소비 최적화 기술에 흥미를 느끼고, 뉴턴 운동 법칙을 수학적으로 모델링함."
+            class="w-full p-4 text-xs sm:text-sm font-mono bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed resize-y"></textarea>
+          <div class="flex justify-end">
+            <button id="btn-parse-text" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center space-x-2">
+              <i class="fa-solid fa-bolt"></i><span>텍스트 정밀 분석 시작</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ============ PROCESSING ============ -->
+    <div id="processing-view" class="hidden bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center space-y-5 max-w-lg mx-auto my-12" aria-live="polite">
+      <div class="relative w-16 h-16 mx-auto flex items-center justify-center">
+        <div class="absolute inset-0 rounded-full border-4 border-blue-100"></div>
+        <div class="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
+        <i class="fa-solid fa-book-open-reader text-blue-600 text-xl"></i>
+      </div>
+      <div class="space-y-1.5">
+        <h3 id="process-title" class="text-base font-bold text-slate-900">생기부 문서 파싱 중...</h3>
+        <p id="process-sub" class="text-xs text-slate-500">한글 글꼴(ToUnicode CMap) 디코딩 및 텍스트 레이어를 추출하고 있습니다.</p>
+      </div>
+      <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+        <div id="process-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width:15%"></div>
+      </div>
+      <p id="process-percent" class="text-xs font-semibold text-blue-600">15%</p>
+    </div>
+
+    <!-- ============ RESULT DASHBOARD ============ -->
+    <div id="result-dashboard" class="hidden space-y-6">
+
+      <!-- Report header (print only) -->
+      <div class="print-only border-b-2 border-slate-800 pb-2 mb-3">
+        <h1 class="text-base font-black">학생부종합전형 역량 흐름 분석 상담 자료</h1>
+        <p class="text-[10pt]" id="print-meta"></p>
+      </div>
+
+      <!-- Summary cards -->
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 page-break">
+        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">STUDENT PROFILE</span>
+              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold" id="badge-school">고등학교</span>
+            </div>
+            <h2 class="text-xl font-extrabold text-slate-900 mt-2 flex items-center space-x-2">
+              <span id="label-student-name">분석 대상 학생</span>
+              <i class="fa-solid fa-circle-check text-blue-600 text-sm"></i>
+            </h2>
+            <p class="text-xs text-slate-500 mt-1">총 활동 문장 <strong id="stat-total-sentences" class="text-blue-600 font-bold">0</strong>개 · 활동 단위 <strong id="stat-total-activities" class="text-slate-700 font-bold">0</strong>건</p>
+            <p class="text-[11px] text-slate-400 mt-0.5" id="label-parse-quality"></p>
+          </div>
+          <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
+            <span>2026/2027 대입 기준</span>
+            <span class="text-emerald-600 font-semibold flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i>로컬 검증 완료</span>
+          </div>
+        </div>
+
+        <div class="bg-blue-50/60 rounded-2xl border border-blue-200/80 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-blue-800 flex items-center gap-1.5"><i class="fa-solid fa-book-bookmark text-blue-600"></i> 학업역량</span>
+              <span class="px-2 py-0.5 rounded-full bg-blue-200/60 text-blue-800 text-xs font-bold" id="stat-academic-ratio">0%</span>
+            </div>
+            <div class="mt-3 flex items-baseline space-x-1">
+              <span class="text-2xl font-black text-blue-900" id="stat-academic-count">0</span>
+              <span class="text-xs font-medium text-blue-700">개 문장</span>
+            </div>
+            <div class="mt-2 space-y-1" id="sub-academic"></div>
+          </div>
+          <div class="w-full bg-blue-200/50 rounded-full h-1.5 mt-3"><div id="bar-academic" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
+        </div>
+
+        <div class="bg-emerald-50/60 rounded-2xl border border-emerald-200/80 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5"><i class="fa-solid fa-compass text-emerald-600"></i> 진로역량</span>
+              <span class="px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-800 text-xs font-bold" id="stat-career-ratio">0%</span>
+            </div>
+            <div class="mt-3 flex items-baseline space-x-1">
+              <span class="text-2xl font-black text-emerald-900" id="stat-career-count">0</span>
+              <span class="text-xs font-medium text-emerald-700">개 문장</span>
+            </div>
+            <div class="mt-2 space-y-1" id="sub-career"></div>
+          </div>
+          <div class="w-full bg-emerald-200/50 rounded-full h-1.5 mt-3"><div id="bar-career" class="bg-emerald-600 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
+        </div>
+
+        <div class="bg-amber-50/60 rounded-2xl border border-amber-200/80 p-5 shadow-sm flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-bold text-amber-800 flex items-center gap-1.5"><i class="fa-solid fa-users text-amber-600"></i> 공동체역량</span>
+              <span class="px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-800 text-xs font-bold" id="stat-community-ratio">0%</span>
+            </div>
+            <div class="mt-3 flex items-baseline space-x-1">
+              <span class="text-2xl font-black text-amber-900" id="stat-community-count">0</span>
+              <span class="text-xs font-medium text-amber-700">개 문장</span>
+            </div>
+            <div class="mt-2 space-y-1" id="sub-community"></div>
+          </div>
+          <div class="w-full bg-amber-200/50 rounded-full h-1.5 mt-3"><div id="bar-community" class="bg-amber-600 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
+        </div>
+      </div>
+
+      <!-- Grade-wise flow -->
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4 page-break">
+        <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
+          <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-arrow-trend-up"></i></div>
+          <div>
+            <h3 class="text-sm sm:text-base font-bold text-slate-900">학년별 역량 흐름 및 위계성 진단</h3>
+            <p class="text-[11px] text-slate-500">학종은 3년간의 성장 궤적을 봅니다. 학년이 올라갈수록 진로역량 비중과 탐구 심화도가 상승하는지 확인하세요.</p>
+          </div>
+        </div>
+        <div id="grade-flow" class="space-y-2.5"></div>
+      </div>
+
+      <!-- Major diagnostic -->
+      <div class="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 sm:p-6 space-y-5 page-break">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-crosshairs"></i></div>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-slate-900">목표 학과 진로연계성 &amp; 교과 이수 권장과목 정밀 진단</h3>
+              <p class="text-[11px] text-slate-500">2027 주요 대학(서울대·연세대·경희대·동국대·시립대·숭실대·국민대·한양대에리카) 학종 가이드북 권장과목 및 평가 척도 반영</p>
+            </div>
+          </div>
+          <div class="flex items-center space-x-2 no-print">
+            <label for="select-target-major" class="text-xs font-bold text-slate-700 flex-shrink-0">목표 희망 학과:</label>
+            <select id="select-target-major" class="text-xs font-bold bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 cursor-pointer"></select>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
+          <div class="lg:col-span-4 bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-600"></i><span>전공 연계 교과 이수 점검표</span></h4>
+              <span id="major-course-score-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">산출중</span>
+            </div>
+            <div class="space-y-2">
+              <div>
+                <p class="text-[11px] font-semibold text-rose-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-exclamation text-[10px]"></i> 핵심과목 (대학 지정 필수 권장)</p>
+                <div id="required-courses-list" class="flex flex-wrap gap-1.5 min-h-[30px] items-center"></div>
+              </div>
+              <div class="pt-1">
+                <p class="text-[11px] font-semibold text-blue-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-check text-[10px]"></i> 권장과목 (가급적 이수 권장)</p>
+                <div id="recommended-courses-list" class="flex flex-wrap gap-1.5 min-h-[30px] items-center"></div>
+              </div>
+            </div>
+            <p class="text-[10px] text-slate-400 leading-tight pt-1">* 가이드북 평가원칙: 학교 미개설 과목은 공동교육과정 또는 교과 세특을 통한 자발적 보완 노력을 정성평가에 긍정적으로 반영합니다.</p>
+          </div>
+
+          <div class="lg:col-span-5 bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-blue-600"></i><span>활동 수준 및 탐구 심화도 진단</span></h4>
+              <span id="major-depth-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">진단 중</span>
+            </div>
+            <div class="space-y-2" id="major-depth-content"></div>
+            <div class="pt-2 border-t border-slate-200/60">
+              <span class="text-[10px] font-semibold text-slate-500">생기부 발견 주요 전공 연계 키워드:</span>
+              <div id="major-detected-keywords" class="flex flex-wrap gap-1 mt-1"></div>
+            </div>
+          </div>
+
+          <div class="lg:col-span-3 bg-amber-50/40 rounded-xl p-4 border border-amber-200/60 space-y-2.5">
+            <h4 class="text-xs font-bold text-amber-900 flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-amber-600"></i><span>가이드북 기반 예상 면접 질문</span></h4>
+            <p class="text-[10px] text-amber-700/90 leading-tight">입학사정관이 학생부 진위 여부 및 심화 원리를 확인할 핵심 문항</p>
+            <ul id="major-interview-questions" class="space-y-2 text-[11px] text-slate-700 leading-snug"></ul>
+          </div>
+        </div>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-wrap items-center justify-between gap-3 no-print sticky top-16 z-20">
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl" role="group" aria-label="학년 필터">
+            <button data-filter-grade="all" class="btn-filter-grade px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-800 shadow-sm">전체 학년</button>
+            <button data-filter-grade="1" class="btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900">1학년</button>
+            <button data-filter-grade="2" class="btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900">2학년</button>
+            <button data-filter-grade="3" class="btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900">3학년</button>
+          </div>
+          <select id="filter-section" aria-label="영역 필터" class="text-xs font-semibold bg-slate-100 border-none rounded-xl px-3 py-2 text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer">
+            <option value="all">모든 영역 (세특/창체/행특)</option>
+            <option value="세특">교과 세특</option>
+            <option value="자율">창체 - 자율활동</option>
+            <option value="동아리">창체 - 동아리활동</option>
+            <option value="진로">창체 - 진로활동</option>
+            <option value="봉사">창체 - 봉사활동</option>
+            <option value="행특">행동특성 및 종합의견</option>
+            <option value="독서">독서활동</option>
+          </select>
+          <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl px-3 py-2 cursor-pointer">
+            <input type="checkbox" id="filter-lowconf" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+            <span>재검토 필요만 보기</span>
+          </label>
+        </div>
+
+        <div class="flex items-center space-x-2 w-full sm:w-auto">
+          <div class="relative flex-1 sm:w-56">
+            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+            <input type="text" id="search-keyword" placeholder="키워드 검색 (예: 유전자, 미적분)" aria-label="키워드 검색"
+              class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all">
+          </div>
+          <button id="btn-undo" disabled class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all flex items-center space-x-1.5" title="마지막 재분류 되돌리기 (Ctrl+Z)">
+            <i class="fa-solid fa-arrow-rotate-left"></i><span class="hidden sm:inline">되돌리기</span>
+          </button>
+          <button id="btn-export-csv" class="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-xl transition-all flex items-center space-x-1.5">
+            <i class="fa-solid fa-file-excel text-emerald-600"></i><span class="hidden sm:inline">CSV</span>
+          </button>
+          <button id="btn-print" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center space-x-1.5">
+            <i class="fa-solid fa-print"></i><span class="hidden sm:inline">보고서 인쇄</span>
+          </button>
+        </div>
+      </div>
+
+      <p class="text-[11px] text-slate-500 no-print flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
+        <span><i class="fa-solid fa-hand-pointer text-slate-400 mr-1"></i>문장을 드래그하거나, 클릭 후 <kbd class="px-1 py-0.5 bg-slate-200 rounded text-[10px] font-mono">1</kbd>/<kbd class="px-1 py-0.5 bg-slate-200 rounded text-[10px] font-mono">2</kbd>/<kbd class="px-1 py-0.5 bg-slate-200 rounded text-[10px] font-mono">3</kbd> 키로 역량을 바꿀 수 있습니다.</span>
+        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>노란 테두리 = 자동분류 신뢰도 낮음 → 교사 확인 권장</span>
+      </p>
+
+      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden page-break">
+        <div class="grid grid-cols-12 bg-slate-100/80 border-b border-slate-200 text-xs font-bold text-slate-700 py-3.5 px-4 text-center">
+          <div class="col-span-1">학년/영역</div>
+          <div class="col-span-3 text-left pl-2">탐구 주제 및 활동 원문</div>
+          <div class="col-span-8 grid grid-cols-3 gap-2 text-center">
+            <div class="text-blue-700 flex items-center justify-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span><span>학업역량</span></div>
+            <div class="text-emerald-700 flex items-center justify-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><span>진로역량</span></div>
+            <div class="text-amber-700 flex items-center justify-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-600"></span><span>공동체역량</span></div>
+          </div>
+        </div>
+        <div id="activity-rows-container" class="divide-y divide-slate-100"></div>
+      </div>
+
+      <!-- Consulting summary -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 page-break">
+        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-indigo-600"></i><span>학생부종합전형 역량 밸런스 총평 및 보완 솔루션</span></h3>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="consulting-cards"></div>
+      </div>
+
+      <!-- Counseling sheet -->
+      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 page-break page-break-before">
+        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-clipboard-user text-slate-700"></i><span>1:1 상담용 요약 시트</span></h3>
+          <button id="btn-copy-sheet" class="no-print px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center gap-1.5">
+            <i class="fa-regular fa-copy"></i><span>텍스트 복사</span>
+          </button>
+        </div>
+        <div id="counsel-sheet" class="text-xs leading-relaxed text-slate-700 space-y-3"></div>
+      </div>
+
+    </div>
+  </main>
+
+  <div id="custom-dialog" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 transform transition-all scale-95 opacity-0 duration-200" id="dialog-box">
+      <div class="flex items-start space-x-3.5">
+        <div id="dialog-icon-wrapper" class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+          <i id="dialog-icon" class="fa-solid fa-circle-info text-lg"></i>
+        </div>
+        <div class="space-y-1">
+          <h4 id="dialog-title" class="text-base font-bold text-slate-900">알림</h4>
+          <p id="dialog-message" class="text-xs text-slate-600 leading-relaxed"></p>
+        </div>
+      </div>
+      <div class="flex justify-end space-x-2 pt-2">
+        <button id="dialog-btn-ocr" class="hidden px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl transition-all"><i class="fa-solid fa-eye mr-1"></i>스캔본 OCR로 읽기</button>
+        <button id="dialog-btn-paste" class="hidden px-3.5 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl transition-all"><i class="fa-solid fa-paste mr-1"></i>텍스트 직접 붙여넣기</button>
+        <button id="dialog-btn-confirm" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all">확인</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden no-print" aria-live="polite">
+    <div class="bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+      <i class="fa-solid fa-circle-check text-emerald-400"></i><span id="toast-msg"></span>
+    </div>
+  </div>
+
+  <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400 no-print">
+    <p>© 2026/2027 생활기록부 역량 흐름 분석기 · <span data-app-version>ver.2026.4</span> · All analysis is performed strictly in client-side memory.</p>
+  </footer>
+
+<script>
+"use strict";
+/* =========================================================================
+   생활기록부 역량 흐름 분석기
+   단일 파일 · 무빌드 · 클라이언트 전용
+   Layer: CONST → STATE → PARSE → CLASSIFY → RENDER → EXPORT → UI
+   ========================================================================= */
+const App = (() => {
+
+/* ---------------------------------------------------------------- CONST */
+const VERSION = "2026.4";
+/** 이 값 미만이면 "교사 재검토 권장"으로 표시한다. 학업/진로 경계 문장을 놓치지 않기 위한 안전망. */
+const CONF_LOW = 0.60;
+
+/** 학종 공통 평가요소 3역량 / 10항목 (2022, 5개 대학 공동연구 기준) */
+const TAXONOMY = {
+  ac: {
+    label: "학업역량", short: "학업", color: "blue",
+    subs: {
+      ac_achieve : "학업성취도",
+      ac_attitude: "학업태도(자기주도)",
+      ac_inquiry : "탐구력"
+    }
+  },
+  ca: {
+    label: "진로역량", short: "진로", color: "emerald",
+    subs: {
+      ca_course : "전공 관련 교과 이수 노력",
+      ca_grade  : "전공 관련 교과 성취도",
+      ca_explore: "진로 탐색 활동과 경험"
+    }
+  },
+  co: {
+    label: "공동체역량", short: "공동체", color: "amber",
+    subs: {
+      co_collab: "협업과 소통능력",
+      co_share : "나눔과 배려",
+      co_ethic : "성실성과 규칙준수",
+      co_leader: "리더십"
+    }
+  }
+};
+const CATS = ["ac", "ca", "co"];
+
+/**
+ * 가중 규칙 사전.
+ * w = 가중치. 3.0 결정적 / 1.8 강함 / 1.0 보통 / 0.4 약함(보조)
+ * 나이스 상투어("성실히 참여함", "역량을 기름")는 의도적으로 저가중 처리.
+ */
+const RULES = {
+  ac_inquiry: [
+    { w:3.0, re:/가설(을|이|\s*설정|\s*검증)|변인\s*통제|대조군|재실험|오차\s*(원인|분석|보정)|실험\s*설계/ },
+    { w:3.0, re:/모델링|시뮬레이션|수치\s*(해석|계산)|회귀\s*분석|유도(하여|해|함|한)|증명(하여|해|함|한)|정량\s*(적|화|검증|평가|분석)/ },
+    { w:1.8, re:/탐구|심화\s*탐구|후속\s*탐구|추가\s*조사|문헌|논문|선행\s*연구|참고문헌/ },
+    { w:1.8, re:/원리|메커니즘|기전|인과|상관관계|법칙을\s*적용|개념을\s*확장/ },
+    { w:1.0, re:/분석|해석|고찰|규명|비교\s*분석|검토/ },
+    { w:1.0, re:/산출(하여|해|함|한)|계산(하여|해|함|한)|측정(하여|해|함|한)|제작(하여|해|함|한)|설계(하여|해|함|한)|도출/ },
+    { w:0.4, re:/호기심|의문|질문/ }
+  ],
+  ac_attitude: [
+    { w:3.0, re:/스스로\s*(찾아|학습|공부|유도|설계|정리)|자기주도(적)?|자발적으로|주도적으로\s*(학습|공부|탐색)/ },
+    { w:1.8, re:/끈기|포기하지\s*않고|반복(하여|해서)\s*(시도|학습)|꾸준히\s*(학습|정리|기록)|복습|오답\s*노트/ },
+    { w:1.0, re:/학습\s*계획|시간\s*관리|메타인지|학습\s*전략/ }
+  ],
+  ac_achieve: [
+    { w:3.0, re:/성취도\s*(가|는)?\s*(우수|최상|높)|최상위|1등급|석차|평균을\s*상회|교과\s*우수상/ },
+    { w:1.8, re:/개념\s*이해(도)?\s*(가)?\s*(뛰어|우수|탄탄)|기본\s*원리를\s*정확히|지식이\s*체계적/ },
+    { w:1.0, re:/우수한\s*(성적|결과)|높은\s*이해도/ }
+  ],
+  ca_explore: [
+    { w:3.0, re:/진로(를|에|와|가)?\s*(탐색|연계|설계|구체화)|희망\s*(진로|전공|학과)|장래\s*희망|직업\s*체험|진로\s*캠프|학과\s*탐방|전공\s*체험|진학하고자|진출하고자/ },
+    // 전공·계열 도메인 어휘: 이 어휘가 등장하면 문장의 성격이 '전공 연계'로 기운다.
+    { w:2.4, re:/(기계|전자|전기|화학|신소재|재료|산업|건축|토목|항공|우주|원자력|에너지|환경|컴퓨터|소프트웨어|정보|데이터|반도체|바이오|생명|의료|의학|약학|간호|수의|보건|경영|경제|통상|회계|금융|법학|행정|정치|사회|심리|교육|사범|미디어|광고|디자인|천문|대기|해양|지질|지구환경)\s*(공학|과학|학과|학부|계열|전공|분야|산업|기술|연구)/ },
+    { w:2.2, re:/인공지능|로보틱스|자율주행|모빌리티|신약|정밀의료|이차전지|양자|우주항공|디지털\s*트윈|스마트\s*팩토리/ },
+    { w:1.8, re:/로봇|매니퓰레이터|드론|위성|풍력|태양광|수소|배터리|반도체|센서|엔진|터빈|블레이드|3D\s*프린(터|팅)|아두이노|라즈베리파이|공정|플랜트/ },
+    { w:1.4, re:/발전(기|효율|단가)|에너지\s*(변환|저장|효율)|친환경|탄소\s*중립|자원\s*순환/ },
+    { w:1.6, re:/(관심|흥미)(을|를)?\s*(느끼|가지|보이|확장)|매력을\s*느끼|더\s*알아보고자|진로활동|커리어|현직자|대학\s*전공\s*소개/ },
+    { w:1.4, re:/실생활|산업\s*현장|사회\s*문제\s*해결|응용\s*가능성|현업|실무/ }
+  ],
+  ca_course: [
+    { w:3.0, re:/공동교육과정|온라인\s*학교|소인수\s*과목|미개설\s*과목|추가로\s*이수|위계(를|에)\s*맞추어|진로선택|융합선택/ },
+    { w:1.8, re:/(미적분|기하|확률과\s*통계|물리학\s*?I{1,2}|화학\s*?I{1,2}|생명과학\s*?I{1,2}|지구과학\s*?I{1,2}|정보|인공지능\s*수학|경제|경제수학)\s*(을|를|과목)/ },
+    { w:1.0, re:/과목을\s*(선택|이수|수강)|교과를\s*연계/ }
+  ],
+  ca_grade: [
+    { w:1.8, re:/전공\s*관련\s*(교과|과목)\s*(에서)?\s*(우수|성취|두각)|해당\s*교과에서\s*(우수|두각)/ },
+    { w:1.0, re:/심화\s*과목에서\s*(높은|우수)/ }
+  ],
+  co_collab: [
+    { w:3.0, re:/모둠(원|\s*활동|\s*토의)|팀원(들)?(과|은|의)|협업|협력(하여|해|하며)|역할\s*(을)?\s*분담|공동\s*(연구|제작|프로젝트)/ },
+    { w:1.8, re:/토론|토의|의견을\s*조율|합의(를|에)\s*이|경청|소통(하며|하여|능력)|발표를\s*통해\s*공유/ },
+    { w:1.0, re:/함께\s*(수행|제작|해결)|서로\s*(도와|피드백)/ }
+  ],
+  co_leader: [
+    { w:3.0, re:/반장|부반장|학생회|동아리\s*(회)?장|부장|팀장|조장|위원장|주도하여\s*(이끌|기획|운영)/ },
+    { w:1.8, re:/리더십|솔선수범|앞장서(서|며)|이끌어\s*(감|나감)|주도적으로\s*(운영|기획|조직)/ }
+  ],
+  co_share: [
+    { w:3.0, re:/봉사(활동)?|나눔|기부|재능\s*기부|또래\s*(멘토|교사|학습)|멘토(로서|링을)|가르쳐\s*주|도움을\s*주/ },
+    { w:1.8, re:/배려|공감|이해하려\s*노력|힘든\s*친구|소외된|어려움을\s*겪는/ }
+  ],
+  co_ethic: [
+    { w:1.8, re:/규칙(을)?\s*(준수|지키)|규정을\s*지키|약속을\s*지키|결석\s*없이|지각\s*(한\s*번)?\s*없이|출결이?\s*(성실|양호)/ },
+    { w:1.0, re:/성실(하게|히|한|함)|책임감(을|이)|맡은\s*바|묵묵히|궂은일/ }
+  ]
+};
+
+/** 영역(section)별 사전확률 보정 — 문맥이 분류를 돕도록 */
+const SECTION_PRIOR = {
+  "세특":   { ac: 1.15, ca: 1.00, co: 0.85 },
+  "자율":   { ac: 0.85, ca: 0.95, co: 1.25 },
+  "동아리": { ac: 1.00, ca: 1.25, co: 1.00 },
+  "진로":   { ac: 0.72, ca: 1.75, co: 0.80 },
+  "봉사":   { ac: 0.70, ca: 0.85, co: 1.50 },
+  "행특":   { ac: 0.90, ca: 0.85, co: 1.35 },
+  "독서":   { ac: 1.20, ca: 1.10, co: 0.75 }
+};
+
+/** 나이스 상투어 — 단독 등장 시 분류 근거로 쓰지 않음 */
+const BOILERPLATE = /^(?:.{0,12})?(?:성실히\s*(참여|수행)|열심히\s*참여|적극적으로\s*참여|참여함|수행함|노력함|기여함|역량을?\s*(기름|함양)|태도를?\s*보임)(?:.{0,12})?[.。]?$/;
+
+const SECTION_META = {
+  "세특":   { badge:"bg-blue-100 text-blue-800" },
+  "자율":   { badge:"bg-purple-100 text-purple-800" },
+  "동아리": { badge:"bg-teal-100 text-teal-800" },
+  "진로":   { badge:"bg-green-100 text-green-800" },
+  "봉사":   { badge:"bg-pink-100 text-pink-800" },
+  "행특":   { badge:"bg-amber-100 text-amber-800" },
+  "독서":   { badge:"bg-slate-200 text-slate-700" }
+};
+
+/** 2027 대입 가이드북 기반 전공 표준 */
+const MAJORS = {
+  mechanical: {
+    name: "기계공학부 / 기계로봇에너지 / 미래모빌리티",
+    requiredCourses: ["수학I","수학II","미적분","물리학I","물리학II"],
+    recommendedCourses: ["기하","확률과 통계","화학I"],
+    coreKeywords: ["역학","뉴턴","유체","열역학","모터","설계","자율주행","센서","아두이노","기계","동력","에너지","충격량","진자","제어","3D","베르누이","마찰","토크"],
+    evaluationFocus: "물리학·미적분을 기반으로 수학적·물리적 원리를 실제 기계/모빌리티 시스템에 모델링하고 적용하는 역량을 핵심으로 평가합니다.",
+    interviewQuestions: [
+      "세특에 기재된 역학/운동 탐구에서 오차의 원인과 이를 통제하기 위해 재설계한 과정은 무엇인가요?",
+      "미적분·기하 개념이 기계 시스템 해석에 어떻게 응용되는지 설명해 보세요.",
+      "제어 알고리즘이나 모빌리티 설계 활동에서 본인이 주도한 구체적 역할은 무엇이었나요?",
+      "물리 실험에서 가설과 다른 결과가 나왔을 때 원인을 어떻게 분석하고 개선했나요?"
+    ]
+  },
+  electrical: {
+    name: "전자공학부 / 반도체공학과 / 지능전자",
+    requiredCourses: ["수학I","수학II","미적분","기하","물리학I","물리학II"],
+    recommendedCourses: ["화학I","확률과 통계","정보"],
+    coreKeywords: ["반도체","전자기","회로","다이오드","트랜지스터","전기장","파동","신호","브레드보드","게이트","LED","소자","논리회로","웨이퍼","공정","HBM"],
+    evaluationFocus: "전자기학·회로 이론의 체계적 이해와 소자·신호 처리 등 하드웨어 탐구 역량을 집중 평가합니다.",
+    interviewQuestions: [
+      "전자기 유도 및 회로 실험 과정과 트랜지스터의 동작 원리를 설명해 보세요.",
+      "반도체 공정·소자 탐구에서 고교 개념을 바탕으로 스스로 확장한 내용은 무엇인가요?",
+      "삼각함수나 미적분이 파동/신호 분석에 어떻게 연결되는지 설명해 주세요.",
+      "논리 게이트나 아두이노 제어 장치 제작에서 발생한 회로 오차를 어떻게 해결했나요?"
+    ]
+  },
+  computer: {
+    name: "컴퓨터공학 / 소프트웨어 / 인공지능(AI)",
+    requiredCourses: ["수학I","수학II","미적분","확률과 통계"],
+    recommendedCourses: ["기하","인공지능 수학","정보","프로그래밍"],
+    coreKeywords: ["알고리즘","파이썬","코딩","데이터","인공지능","머신러닝","딥러닝","빅데이터","최적화","다익스트라","네트워크","행렬","확률","C언어","자료구조","복잡도"],
+    evaluationFocus: "코딩 기술의 나열이 아닌 수학적 논리력과 알고리즘 설계, 데이터 기반 문제해결 역량을 정밀 평가합니다.",
+    interviewQuestions: [
+      "구현한 알고리즘/프로젝트의 시간·공간 복잡도 또는 수학적 원리를 설명해 보세요.",
+      "데이터 편향이나 모델 학습 오류를 개선하기 위해 시도한 보완책은 무엇인가요?",
+      "미적분·확률과 통계·인공지능 수학 개념이 개발 과정에 어떻게 적용되었나요?",
+      "팀 프로젝트에서 역할 분담과 형상 관리에서 겪은 어려움과 해결책은 무엇이었나요?"
+    ]
+  },
+  chemical_materials: {
+    name: "신소재공학부 / 화학공학 / 에너지공학",
+    requiredCourses: ["수학I","수학II","미적분","화학I","화학II"],
+    recommendedCourses: ["물리학I","물리학II","기하"],
+    coreKeywords: ["화학반응","촉매","신소재","배터리","결합","엔탈피","평형","나노","폴리머","이차전지","분자","용액","전지","활성화 에너지","르샤틀리에"],
+    evaluationFocus: "화학·물리 기본 원리의 심층 이해와 신소재/에너지 변환 메커니즘을 실험과 수식으로 검증한 경험을 중시합니다.",
+    interviewQuestions: [
+      "화학 평형·반응 속도론을 적용할 때 발생했던 오차의 원인은 무엇이었나요?",
+      "신소재·배터리 탐구에서 다룬 분자 구조와 물리화학적 특성의 상관관계를 설명해 보세요.",
+      "화학II에서 배운 지식을 산업 소재 기술과 어떻게 연결하여 탐구하였나요?",
+      "변인 통제가 미흡하여 재실험했던 경험이 있다면 구체적으로 설명해 주세요."
+    ]
+  },
+  biology_pharmacy: {
+    name: "약학과 / 바이오의과학 / 생명과학부",
+    requiredCourses: ["화학I","화학II","생명과학I","생명과학II","미적분"],
+    recommendedCourses: ["확률과 통계","물리학I"],
+    coreKeywords: ["효소","유전자","세포","단백질","약물","면역","항상성","대사","미생물","CRISPR","생명공학","합성","DNA","신약","임상"],
+    evaluationFocus: "생명 현상에 대한 정밀한 관찰력, 분자·세포 수준의 화학–생명 융합 탐구 태도와 연구 윤리 의식을 입체적으로 평가합니다.",
+    interviewQuestions: [
+      "생명과학 실험에서 변인 통제 조건과 가설 검증의 논리적 타당성을 설명해 보세요.",
+      "효소 작용이나 약물 전달 기전에 화학적 개념(농도, pH, 분자간 인력)을 어떻게 접목했나요?",
+      "유전자 치료·동물 실험 등 윤리 쟁점에 대해 과학적 근거로 도출한 견해는 무엇인가요?",
+      "세포 대사 기전에서 본인이 주도적으로 탐색한 논문이나 문헌은 무엇인가요?"
+    ]
+  },
+  earth_env: {
+    name: "지구환경과학 / 대기과학 / 천문우주 / 에너지자원",
+    requiredCourses: ["수학I","수학II","지구과학I","지구과학II","미적분"],
+    recommendedCourses: ["물리학I","화학I","확률과 통계","기후변화와 환경생태"],
+    coreKeywords: ["기후","대기","해양","지진","판구조","위성","관측","기상","탄소","엘니뇨","외계행성","분광","퇴적","GIS","시계열","공공데이터"],
+    evaluationFocus: "관측·공공데이터를 직접 가공하여 시공간 변화를 해석하고, 지구시스템의 상호작용을 정량적 근거로 설명하는 역량을 평가합니다.",
+    interviewQuestions: [
+      "기상청·NASA 등 공공데이터를 직접 처리하며 겪은 결측치·이상치 문제를 어떻게 해결했나요?",
+      "지구시스템의 권역 간 상호작용을 하나의 사례로 인과 구조까지 설명해 보세요.",
+      "관측 자료의 시계열 경향성을 판단할 때 통계적 유의성을 어떻게 확인했나요?",
+      "기후변화 대응 방안을 제시할 때 근거로 삼은 데이터와 그 한계는 무엇이었나요?"
+    ]
+  },
+  math_stat: {
+    name: "수학과 / 통계학과 / 데이터사이언스",
+    requiredCourses: ["수학I","수학II","미적분","확률과 통계","기하"],
+    recommendedCourses: ["경제수학","인공지능 수학","정보"],
+    coreKeywords: ["증명","수열","극한","행렬","확률분포","표본","유의수준","가설검정","최적화","함수","위상","시뮬레이션","통계"],
+    evaluationFocus: "형식적 계산을 넘어 정의와 정리를 스스로 증명하고, 수학적 구조를 현상 해석에 적용하는 추상화 역량을 평가합니다.",
+    interviewQuestions: [
+      "탐구에서 사용한 정리를 정의부터 출발하여 증명해 보세요.",
+      "통계적 추론을 적용할 때 표본의 대표성과 한계를 어떻게 검토했나요?",
+      "하나의 수학 개념이 서로 다른 두 분야에 적용된 사례를 설명해 보세요.",
+      "직관과 다른 수학적 결과를 만났을 때 어떻게 받아들이고 검증했나요?"
+    ]
+  },
+  medical: {
+    name: "의예과 / 치의예 / 수의예 / 간호학",
+    requiredCourses: ["생명과학I","생명과학II","화학I","화학II","미적분"],
+    recommendedCourses: ["확률과 통계","물리학I","윤리와 사상"],
+    coreKeywords: ["질병","진단","항생제","백신","공중보건","해부","생리","임상","의료윤리","감염","역학조사","환자"],
+    evaluationFocus: "생명과학·화학의 학업 역량과 함께, 생명 존중과 의료 윤리에 대한 성찰 및 공동체 기여 경험을 균형 있게 평가합니다.",
+    interviewQuestions: [
+      "생명과학 탐구에서 다룬 인체 기전을 분자 수준까지 설명해 보세요.",
+      "의료 자원 배분이나 환자 자기결정권 같은 윤리 쟁점에 대한 본인의 견해는 무엇인가요?",
+      "공동체 활동에서 타인을 배려한 경험이 의료인의 자질과 어떻게 연결된다고 보나요?",
+      "감염병 통계 자료를 해석할 때 유의해야 할 점은 무엇이라고 생각하나요?"
+    ]
+  },
+  business_econ: {
+    name: "경영학부 / 경제학과 / 국제통상",
+    requiredCourses: ["수학I","수학II","확률과 통계","경제"],
+    recommendedCourses: ["미적분","경제수학","사회·문화"],
+    coreKeywords: ["시장","소비자","마케팅","재무","수요","공급","통계","무역","환율","ESG","데이터","비용","효용","가격","금리"],
+    evaluationFocus: "시장·사회 문제를 수리통계적으로 정량 분석하고 현실적 경영·경제 전략과 합리적으로 연결하는 능력을 평가합니다.",
+    interviewQuestions: [
+      "탐구에서 다룬 시장 분석 모델이나 통계 자료의 한계와 보완 방식은 무엇인가요?",
+      "통계 개념을 활용해 소비 또는 마케팅 문제를 분석한 사례를 설명해 보세요.",
+      "ESG 사례 분석에서 발견한 사회적 가치와 재무 성과의 상관관계는 무엇인가요?",
+      "환율·금리 변동이 무역 수지에 미치는 파급 효과를 어떻게 분석했나요?"
+    ]
+  },
+  media_social: {
+    name: "미디어커뮤니케이션 / 사회학과 / 광고홍보",
+    requiredCourses: ["사회·문화","국어","영어"],
+    recommendedCourses: ["사회문제 탐구","언어와 매체","확률과 통계"],
+    coreKeywords: ["미디어","콘텐츠","사회문제","커뮤니케이션","수용자","프레이밍","여론","설문","불평등","디지털","영상","플랫폼","알고리즘"],
+    evaluationFocus: "사회 현상에 대한 비판적 안목과 공감 능력, 디지털 미디어 리터러시 및 메시지 기획·전달 역량을 종합 평가합니다.",
+    interviewQuestions: [
+      "미디어/사회 현상 탐구에서 가설 검증을 위해 설계한 조사 방법과 결과 해석을 설명해 주세요.",
+      "디지털 환경의 사회적 갈등이나 혐오 표현 문제에 제시한 대안은 무엇인가요?",
+      "설문·통계 자료로 콘텐츠를 기획할 때 수용자 심리와 사회적 맥락을 어떻게 반영했나요?",
+      "필터버블이나 프레이밍이 여론 형성에 미치는 영향은 무엇이라고 보나요?"
+    ]
+  },
+  education: {
+    name: "사범대학 / 교육학과 / 교과교육",
+    requiredCourses: ["국어","영어","수학I","사회·문화"],
+    recommendedCourses: ["교육학","심리학","윤리와 사상","확률과 통계"],
+    coreKeywords: ["교육","수업","학습","또래","멘토","설명","피드백","교재","발달","동기","평가","교육과정","협력학습"],
+    evaluationFocus: "전공 교과의 학업 역량과 함께, 타인의 학습을 돕고 설명하는 과정에서 드러나는 교육적 소통 역량을 중점 평가합니다.",
+    interviewQuestions: [
+      "또래 학습을 도우며 상대의 이해 수준에 맞춰 설명을 바꾼 경험을 말해 주세요.",
+      "본인이 가르치고 싶은 교과의 핵심 개념 하나를 중학생 수준으로 설명해 보세요.",
+      "교육 격차 문제에 대해 자료를 근거로 제시할 수 있는 해결 방안은 무엇인가요?",
+      "평가가 학생의 학습에 미치는 영향에 대해 어떻게 생각하나요?"
+    ]
+  },
+  humanities: {
+    name: "국어국문 / 외국어문학 / 인문융합",
+    requiredCourses: ["국어","문학","독서","영어"],
+    recommendedCourses: ["언어와 매체","한문I","동아시아사","윤리와 사상"],
+    coreKeywords: ["문학","언어","텍스트","구조","비평","역사","번역","의미","어휘","맥락","문화","철학","서사"],
+    evaluationFocus: "인간과 사회에 대한 인문학적 성찰, 텍스트 분석 및 비판적 독해력, 유연한 의사소통 능력을 중심으로 평가합니다.",
+    interviewQuestions: [
+      "문학 비평에서 인물의 심리와 시대 상황을 어떤 인문학적 시각으로 해석했나요?",
+      "언어 구조나 문법 특성을 비교 탐구하며 발견한 문화적 차이와 시사점은 무엇인가요?",
+      "본인의 사고를 가장 크게 전환시킨 인문학 서적과 그 이유는 무엇인가요?",
+      "인문학적 통찰이 AI 사회에서 왜 여전히 중요한지 견해를 밝혀 주세요."
+    ]
+  }
+};
+
+/* ---------------------------------------------------------------- STATE */
+const state = {
+  rawText: "",
+  fileName: "",
+  student: { name: "", school: "" },
+  activities: [],
+  parseQuality: "",
+  filter: { grade: "all", section: "all", search: "", lowConfOnly: false },
+  stats: null,
+  history: [],
+  selectedSentId: null
+};
+
+/* ---------------------------------------------------------------- UTIL  */
+const $  = (id) => document.getElementById(id);
+const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
+
+function esc(text) {
+  if (text === null || text === undefined) return "";
+  return String(text)
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+}
+
+let _uid = 0;
+const uid = (p) => p + "-" + (++_uid).toString(36) + "-" + Math.random().toString(36).slice(2, 7);
+
+function toast(msg) {
+  const t = $("toast"); if (!t) return;
+  $("toast-msg").textContent = msg;
+  t.classList.remove("hidden");
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.add("hidden"), 2200);
+}
+
+/* ================================================================= PARSE */
+const Parse = {
+  /**
+   * pdf.js textContent -> 좌표 기반 줄 복원.
+   * 이전 버전은 한 페이지를 공백으로 이어붙여 한 줄로 만들었고, 영역 구분은 줄 단위였다.
+   * 그래서 실제 나이스 PDF가 통째로 하나의 활동으로 뭉개졌다. 그 지점을 고친다.
+   */
+  reflowTextContent(textContent) {
+    const rows = new Map();
+    for (const item of textContent.items) {
+      if (!item.str) continue;
+      const tr = item.transform || [1, 0, 0, 1, 0, 0];
+      const y = Math.round(tr[5] / 2) * 2;   // 2pt 스냅: 첨자/행간 흔들림 흡수
+      const x = tr[4];
+      if (!rows.has(y)) rows.set(y, []);
+      rows.get(y).push({ x: x, s: item.str });
+    }
+    return Array.from(rows.keys())
+      .sort((a, b) => b - a)                 // PDF 좌표계는 아래쪽이 0
+      .map(function (y) {
+        return rows.get(y).sort((a, b) => a.x - b.x)
+          .map(o => o.s).join("").replace(/\s+/g, " ").trim();
+      })
+      .filter(Boolean)
+      .join("\n");
+  },
+
+  /** 한 줄로 뭉친 텍스트(OCR/복붙)에도 영역 경계를 되살린다. */
+  reflow(text) {
+    return text
+      .replace(/\s*(\[?\s*제?\s*[1-3]\s*학년\s*\]?)\s*/g, "\n$1\n")
+      .replace(/\s*(창의적\s*체험활동상?황?|자율활동|자율·자치활동|동아리활동|진로활동|봉사활동실적|봉사활동|행동특성\s*및\s*종합의견|독서활동상?황?|세부능력\s*및\s*특기사항|교과학습발달상황)\s*/g, "\n$1\n")
+      .replace(/\n{2,}/g, "\n")
+      .trim();
+  },
+
+  extractStudent(text) {
+    const nameMatch   = text.match(/성\s*명\s*[:：]?\s*([가-힣]{2,4})/);
+    const schoolMatch = text.match(/([가-힣A-Za-z0-9]{2,15}고등학교)/);
+    return {
+      name:   nameMatch ? nameMatch[1] : "",
+      school: schoolMatch ? schoolMatch[1] : ""
+    };
+  },
+
+  SECTION_PATTERNS: [
+    { re: /^\[?\s*(자율·자치활동|자율활동|창의적\s*체험활동상?황?)\s*\]?/, section: "자율",   title: "자율·자치활동" },
+    { re: /^\[?\s*동아리활동\s*\]?/,                   section: "동아리", title: "동아리활동" },
+    { re: /^\[?\s*진로활동\s*\]?/,                     section: "진로",   title: "진로활동" },
+    { re: /^\[?\s*봉사활동(\s*실적)?\s*\]?/,           section: "봉사",   title: "봉사활동" },
+    { re: /^\[?\s*행동특성\s*및\s*종합의견\s*\]?/,     section: "행특",   title: "행동특성 및 종합의견" },
+    { re: /^\[?\s*독서활동상?황?\s*\]?/,               section: "독서",   title: "독서활동" },
+    { re: /^\[?\s*세부능력\s*및\s*특기사항\s*\]?/,     section: "세특",   title: "교과 세부능력 및 특기사항" }
+  ],
+
+  NOISE: /^(?:\d+\s*\/\s*\d+|-\s*\d+\s*-|페이지|출력일|발급번호|학교생활기록부|학교생활세부사항기록부|주민등록번호|담임\s*성명|검증번호|이\s*문서는|본\s*증명서는)/,
+
+  segment(text) {
+    const activities = [];
+    const lines = text.split(/\r?\n/);
+    let grade = "1", section = "세특", title = "일반 교과 활동", buffer = [];
+
+    const flush = function () {
+      const body = buffer.join(" ").replace(/\s+/g, " ").trim();
+      if (body.replace(/\s/g, "").length > 15) {
+        activities.push(Parse.makeActivity(grade, section, title, body));
+      }
+      buffer = [];
+    };
+
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line || Parse.NOISE.test(line)) continue;
+
+      // 학년 전환 (그 줄이 사실상 학년 표기뿐일 때만)
+      const g = line.match(/^\[?\s*제?\s*([1-3])\s*학년\s*\]?$/);
+      if (g) { flush(); grade = g[1]; continue; }
+
+      // 영역 전환
+      let matched = false;
+      for (const p of Parse.SECTION_PATTERNS) {
+        if (p.re.test(line)) {
+          flush();
+          section = p.section; title = p.title;
+          const rest = line.replace(p.re, "").replace(/^[\s:：\]]+/, "").trim();
+          if (rest.length > 5) buffer.push(rest);
+          matched = true; break;
+        }
+      }
+      if (matched) continue;
+
+      // 교과명 헤더  예) 물리학I: ...
+      const subj = line.match(/^([가-힣A-Za-z0-9·\s]{2,14})\s*[:：]\s*(.*)$/);
+      if (subj && !/기록|성명|학년|번호|비고|일자|시간/.test(subj[1])) {
+        flush(); section = "세특"; title = subj[1].trim();
+        if (subj[2]) buffer.push(subj[2]);
+        continue;
+      }
+      // [미적분] ... 형태
+      const brk = line.match(/^\[([가-힣A-Za-z0-9·\s]{2,14})\]\s*(.*)$/);
+      if (brk && !/학년/.test(brk[1])) {
+        flush();
+        section = /활동/.test(brk[1]) ? "자율" : "세특";
+        title = brk[1].trim();
+        if (brk[2]) buffer.push(brk[2]);
+        continue;
+      }
+
+      buffer.push(line);
+    }
+    flush();
+
+    if (activities.length === 0 && text.trim()) {
+      text.split(/\n\s*\n/).forEach(function (para, i) {
+        if (para.trim().length > 20) {
+          activities.push(Parse.makeActivity("1", "세특", "탐구 활동 " + (i + 1), para.trim()));
+        }
+      });
+    }
+    return activities;
+  },
+
+  /**
+   * 한국어 문장 분리. 마침표 뒤 공백이 없어도 종결어미로 끊는다.
+   * 나이스 서술은 대부분 '~함.' '~임.' '~됨.' 으로 끝난다.
+   */
+  splitSentences(content) {
+    const MARK = "<<|S|>>";
+    const marked = content
+      .replace(/([.?!])\s+/g, "$1" + MARK)
+      .replace(/((?:함|음|임|됨|짐|봄|옴|녀|드러남|보임)\.)(?!\d)/g, "$1" + MARK);
+    return marked.split(MARK)
+      .map(s => s.trim())
+      .filter(s => s.replace(/\s/g, "").length >= 6);
+  },
+
+  makeActivity(grade, section, title, content) {
+    const sentences = Parse.splitSentences(content).map(function (text) {
+      const r = Classify.run(text, section);
+      return { id: uid("s"), text: text, cat: r.cat, sub: r.sub, conf: r.conf, auto: r.cat, edited: false };
+    });
+    return { id: uid("a"), grade: grade, section: section, title: title, rawContent: content, sentences: sentences };
+  }
+};
+
+/* ============================================================== CLASSIFY */
+const Classify = {
+  parentOf(subKey) { return subKey.slice(0, 2); },
+
+  /**
+   * 문장 하나를 3역량/10항목으로 분류한다.
+   * 규칙 점수 -> 영역 사전확률 보정 -> 정규화 -> 신뢰도(1·2위 격차) 산출.
+   * @returns {{cat:string, sub:string|null, conf:number, scores:object}}
+   */
+  run(text, section) {
+    const subScore = {};
+    let hitTotal = 0;
+
+    for (const subKey in RULES) {
+      let s = 0;
+      for (const rule of RULES[subKey]) {
+        if (rule.re.test(text)) { s += rule.w; hitTotal += rule.w; }
+      }
+      subScore[subKey] = s;
+    }
+
+    // 상투어만 있는 문장은 근거 없음으로 처리
+    const isBoiler = BOILERPLATE.test(text.trim()) || hitTotal === 0;
+
+    const prior = SECTION_PRIOR[section] || { ac: 1, ca: 1, co: 1 };
+    const catScore = { ac: 0, ca: 0, co: 0 };
+    for (const subKey in subScore) {
+      catScore[Classify.parentOf(subKey)] += subScore[subKey];
+    }
+    for (const c of CATS) catScore[c] *= prior[c];
+
+    // 문장 길이 정규화: 긴 문장이 무조건 이기지 않도록 완만히 보정
+    const lenFactor = Math.sqrt(Math.max(text.replace(/\s/g, "").length, 20) / 40);
+    for (const c of CATS) catScore[c] = catScore[c] / lenFactor;
+
+    const ranked = CATS.slice().sort((a, b) => catScore[b] - catScore[a]);
+    const top = ranked[0], second = ranked[1];
+
+    let cat, conf;
+    if (isBoiler || catScore[top] <= 0) {
+      // 근거 없음 -> 영역 사전확률만으로 배정하고 신뢰도를 바닥으로
+      cat = section === "진로" ? "ca" : (section === "행특" || section === "자율" || section === "봉사") ? "co" : "ac";
+      conf = 0.12;
+    } else {
+      cat = top;
+      const gap = (catScore[top] - catScore[second]) / catScore[top];
+      const mass = Math.min(catScore[top] / 3.0, 1);
+      conf = Math.max(0.15, Math.min(0.99, 0.35 * mass + 0.65 * gap));
+    }
+
+    // 대표 세부항목: 선택된 상위역량 안에서 최고 점수
+    let sub = null, best = 0;
+    for (const subKey in subScore) {
+      if (Classify.parentOf(subKey) === cat && subScore[subKey] > best) { best = subScore[subKey]; sub = subKey; }
+    }
+
+    return { cat: cat, sub: sub, conf: Math.round(conf * 100) / 100, scores: catScore };
+  },
+
+  /** 재분류 시 대표 세부항목도 새 역량 기준으로 다시 잡는다. */
+  resubFor(text, cat) {
+    let sub = null, best = 0;
+    for (const subKey in RULES) {
+      if (Classify.parentOf(subKey) !== cat) continue;
+      let s = 0;
+      for (const rule of RULES[subKey]) if (rule.re.test(text)) s += rule.w;
+      if (s > best) { best = s; sub = subKey; }
+    }
+    return sub;
+  }
+};
+
+/* ================================================================= STATS */
+const Stats = {
+  compute() {
+    const byCat = { ac: 0, ca: 0, co: 0 };
+    const bySub = {};
+    const byGrade = { "1": { ac: 0, ca: 0, co: 0, total: 0 }, "2": { ac: 0, ca: 0, co: 0, total: 0 }, "3": { ac: 0, ca: 0, co: 0, total: 0 } };
+    let total = 0, lowConf = 0, edited = 0;
+
+    for (const cat in TAXONOMY) for (const sk in TAXONOMY[cat].subs) bySub[sk] = 0;
+
+    state.activities.forEach(function (act) {
+      act.sentences.forEach(function (s) {
+        total++;
+        byCat[s.cat]++;
+        if (s.sub && bySub[s.sub] !== undefined) bySub[s.sub]++;
+        if (byGrade[act.grade]) { byGrade[act.grade][s.cat]++; byGrade[act.grade].total++; }
+        if (s.conf < CONF_LOW) lowConf++;
+        if (s.edited) edited++;
+      });
+    });
+
+    state.stats = { total: total, byCat: byCat, bySub: bySub, byGrade: byGrade, lowConf: lowConf, edited: edited };
+    return state.stats;
+  },
+
+  pct(n, d) { return d > 0 ? Math.round((n / d) * 100) : 0; }
+};
+
+/* ================================================================ RENDER */
+const CAT_UI = {
+  ac: { zone: "bg-blue-50/40 border-blue-100/70",    chip: "bg-white text-blue-900 border-blue-200 hover:border-blue-400",    dot: "bg-blue-600",    hint: "text-blue-300",    bar: "bg-blue-600" },
+  ca: { zone: "bg-emerald-50/40 border-emerald-100/70", chip: "bg-white text-emerald-900 border-emerald-200 hover:border-emerald-400", dot: "bg-emerald-600", hint: "text-emerald-300", bar: "bg-emerald-600" },
+  co: { zone: "bg-amber-50/40 border-amber-100/70",  chip: "bg-white text-amber-900 border-amber-200 hover:border-amber-400",  dot: "bg-amber-600",   hint: "text-amber-300",   bar: "bg-amber-600" }
+};
+
+const Render = {
+  all() {
+    Stats.compute();
+    Render.summary();
+    Render.gradeFlow();
+    Render.table();
+    Render.consulting();
+    Render.counselSheet();
+    Render.majorDiagnostic();
+  },
+
+  summary() {
+    const st = state.stats;
+    $("stat-total-sentences").textContent = st.total;
+    $("stat-total-activities").textContent = state.activities.length;
+    $("label-student-name").textContent = state.student.name ? state.student.name + " 학생" : "분석 대상 학생";
+    $("badge-school").textContent = state.student.school || "고등학교 생활기록부";
+    $("label-parse-quality").textContent = state.parseQuality;
+
+    const map = { ac: "academic", ca: "career", co: "community" };
+    for (const cat of CATS) {
+      const n = st.byCat[cat], p = Stats.pct(n, st.total);
+      $("stat-" + map[cat] + "-count").textContent = n;
+      $("stat-" + map[cat] + "-ratio").textContent = p + "%";
+      $("bar-" + map[cat]).style.width = p + "%";
+
+      const subs = TAXONOMY[cat].subs;
+      $("sub-" + map[cat]).innerHTML = Object.keys(subs).map(function (sk) {
+        const c = st.bySub[sk] || 0;
+        const w = st.byCat[cat] > 0 ? Math.round((c / st.byCat[cat]) * 100) : 0;
+        return '<div class="flex items-center gap-1.5">' +
+          '<span class="text-[10px] text-slate-600 w-[104px] truncate" title="' + esc(subs[sk]) + '">' + esc(subs[sk]) + '</span>' +
+          '<span class="conf-bar flex-1"><i style="width:' + w + '%" class="' + CAT_UI[cat].bar + '"></i></span>' +
+          '<span class="text-[10px] font-bold text-slate-500 w-5 text-right">' + c + '</span>' +
+        '</div>';
+      }).join("");
+    }
+
+    const pm = $("print-meta");
+    if (pm) {
+      pm.textContent = (state.student.name || "학생") + " · " + (state.student.school || "") +
+        " · 총 " + st.total + "문장 / " + state.activities.length + "활동 · 출력일 " + new Date().toLocaleDateString("ko-KR") +
+        " · 교사 수정 " + st.edited + "건";
+    }
+  },
+
+  gradeFlow() {
+    const st = state.stats;
+    const wrap = $("grade-flow");
+    const grades = ["1", "2", "3"].filter(function (g) { return st.byGrade[g].total > 0; });
+
+    if (grades.length === 0) { wrap.innerHTML = '<p class="text-xs text-slate-400">학년 정보를 확인할 수 없습니다.</p>'; return; }
+
+    wrap.innerHTML = grades.map(function (g) {
+      const row = st.byGrade[g];
+      const seg = CATS.map(function (c) {
+        const p = Stats.pct(row[c], row.total);
+        return p > 0 ? '<div class="' + CAT_UI[c].bar + ' h-full flex items-center justify-center text-[9px] font-bold text-white" style="width:' + p + '%" title="' + TAXONOMY[c].label + ' ' + p + '%">' + (p >= 9 ? p + "%" : "") + '</div>' : "";
+      }).join("");
+      return '<div class="flex items-center gap-3">' +
+        '<span class="w-12 text-xs font-bold text-slate-700 flex-shrink-0">' + g + '학년</span>' +
+        '<div class="flex-1 h-5 rounded-lg overflow-hidden flex bg-slate-100 border border-slate-200">' + seg + '</div>' +
+        '<span class="w-14 text-[11px] text-slate-500 text-right flex-shrink-0">' + row.total + '문장</span>' +
+      '</div>';
+    }).join("");
+
+    // 위계성 코멘트
+    if (grades.length >= 2) {
+      const first = st.byGrade[grades[0]], last = st.byGrade[grades[grades.length - 1]];
+      const d = Stats.pct(last.ca, last.total) - Stats.pct(first.ca, first.total);
+      const msg = d >= 8
+        ? { t: "진로역량 비중이 학년 상승에 따라 " + d + "%p 증가했습니다. 학종이 가장 선호하는 위계적 성장 곡선입니다.", c: "emerald" }
+        : d <= -8
+          ? { t: "진로역량 비중이 " + Math.abs(d) + "%p 감소했습니다. 3학년 세특에서 전공 심화 탐구를 의도적으로 배치할 필요가 있습니다.", c: "rose" }
+          : { t: "학년 간 진로역량 비중 변화가 " + Math.abs(d) + "%p로 평탄합니다. 성장의 서사가 드러나도록 상위 학년 활동의 심화도를 끌어올리세요.", c: "amber" };
+      wrap.insertAdjacentHTML("beforeend",
+        '<p class="text-[11px] text-' + msg.c + '-700 bg-' + msg.c + '-50 border border-' + msg.c + '-200/70 rounded-lg px-3 py-2 mt-2">' +
+        '<i class="fa-solid fa-lightbulb mr-1"></i>' + esc(msg.t) + '</p>');
+    }
+  },
+
+  filtered() {
+    return state.activities.filter(function (act) {
+      const f = state.filter;
+      if (f.grade !== "all" && act.grade !== f.grade) return false;
+      if (f.section !== "all" && act.section !== f.section) return false;
+      if (f.lowConfOnly && !act.sentences.some(function (s) { return s.conf < CONF_LOW; })) return false;
+      if (f.search) {
+        const q = f.search;
+        if (!(act.title.toLowerCase().includes(q) || act.rawContent.toLowerCase().includes(q))) return false;
+      }
+      return true;
+    });
+  },
+
+  chip(s) {
+    const ui = CAT_UI[s.cat];
+    const low = s.conf < CONF_LOW;
+    const subLabel = s.sub ? TAXONOMY[s.cat].subs[s.sub] : "근거 불충분";
+    return '<div class="sentence-chip p-2 rounded-lg border text-[11px] leading-snug ' + ui.chip +
+      (low ? " border-amber-400 border-dashed" : "") +
+      (state.selectedSentId === s.id ? " is-selected" : "") +
+      '" draggable="true" tabindex="0" role="button"' +
+      ' aria-label="' + esc(s.text.slice(0, 40)) + ' / ' + esc(subLabel) + '"' +
+      ' data-sent-id="' + s.id + '">' +
+        '<div class="flex items-start justify-between gap-1">' +
+          '<span class="flex-1">' + esc(s.text) + '</span>' +
+          '<button type="button" class="btn-cycle no-print text-[10px] p-0.5 text-slate-400 hover:text-blue-600 rounded flex-shrink-0" data-sent-id="' + s.id + '" title="역량 순환 변경">' +
+            '<i class="fa-solid fa-arrows-rotate"></i></button>' +
+        '</div>' +
+        '<div class="flex items-center gap-1.5 mt-1.5">' +
+          '<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded ' + (low ? "bg-amber-100 text-amber-800" : "bg-slate-100 text-slate-600") + '">' + esc(subLabel) + '</span>' +
+          (s.edited ? '<span class="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-700">교사수정</span>' : '') +
+          '<span class="conf-bar flex-1"><i style="width:' + Math.round(s.conf * 100) + '%" class="' + (low ? "bg-amber-400" : ui.bar) + '"></i></span>' +
+          '<span class="text-[9px] text-slate-400 tabular-nums">' + Math.round(s.conf * 100) + '</span>' +
+        '</div>' +
+      '</div>';
+  },
+
+  table() {
+    const container = $("activity-rows-container");
+    const list = Render.filtered();
+
+    if (list.length === 0) {
+      container.innerHTML = '<div class="p-12 text-center text-slate-400 space-y-2">' +
+        '<i class="fa-regular fa-folder-open text-3xl"></i>' +
+        '<p class="text-sm font-medium">조건에 일치하는 활동 항목이 없습니다.</p></div>';
+      return;
+    }
+
+    container.innerHTML = list.map(function (act) {
+      const cols = CATS.map(function (c) {
+        const items = act.sentences.filter(function (s) { return s.cat === c; });
+        return '<div class="competency-dropzone rounded-xl p-2.5 min-h-[85px] border flex flex-col gap-1.5 transition-all ' + CAT_UI[c].zone + '"' +
+          ' data-act-id="' + act.id + '" data-cat="' + c + '">' +
+          (items.length ? items.map(Render.chip).join("")
+            : '<div class="h-full flex items-center justify-center text-[10px] italic ' + CAT_UI[c].hint + '">문장 드롭 또는 재배치</div>') +
+        '</div>';
+      }).join("");
+
+      const badge = (SECTION_META[act.section] || { badge: "bg-slate-100 text-slate-700" }).badge;
+
+      return '<div class="grid grid-cols-12 py-4 px-4 hover:bg-slate-50/70 transition-colors items-start text-xs" data-activity-id="' + act.id + '">' +
+        '<div class="col-span-1 flex flex-col items-center justify-center pr-2 border-r border-slate-100 space-y-1.5 text-center">' +
+          '<span class="px-2 py-0.5 rounded bg-slate-200 text-slate-700 font-bold text-[11px]">' + act.grade + '학년</span>' +
+          '<span class="px-1.5 py-0.5 rounded text-[10px] font-semibold ' + badge + '">' + esc(act.section) + '</span>' +
+        '</div>' +
+        '<div class="col-span-3 px-3 border-r border-slate-100 space-y-1.5">' +
+          '<h4 class="font-bold text-slate-900 text-xs flex items-center gap-1.5">' +
+            '<i class="fa-solid fa-bookmark text-blue-500 text-[10px]"></i><span>' + esc(act.title) + '</span></h4>' +
+          '<p class="text-[11px] text-slate-500 line-clamp-3 leading-relaxed" title="' + esc(act.rawContent) + '">' + esc(act.rawContent) + '</p>' +
+          '<span class="inline-block text-[10px] text-slate-400">문장 ' + act.sentences.length + '개</span>' +
+        '</div>' +
+        '<div class="col-span-8 grid grid-cols-3 gap-2 pl-2">' + cols + '</div>' +
+      '</div>';
+    }).join("");
+
+    UI.bindTable();
+  },
+
+  consulting() {
+    const st = state.stats;
+    const r = {
+      ac: st.total ? st.byCat.ac / st.total : 0,
+      ca: st.total ? st.byCat.ca / st.total : 0,
+      co: st.total ? st.byCat.co / st.total : 0
+    };
+
+    const fb = {
+      ac: r.ac >= 0.45
+        ? "학업 역량과 지적 호기심을 입증하는 서술이 매우 풍부합니다. 탐구 깊이 부문에서 높은 평가가 기대됩니다."
+        : r.ac >= 0.3
+          ? "학업적 탐구와 교과 개념 적용이 안정적입니다. 가설–검증–오차 분석 구조의 문장을 보강하면 탐구력 항목이 더 선명해집니다."
+          : "단순 참여형 문장의 비중이 높습니다. 교과 개념을 스스로 확장하고 원리를 규명한 서술을 우선 보강해야 합니다.",
+      ca: r.ca >= 0.35
+        ? "희망 진로와 연계된 전공 심화 탐구가 명확히 드러나며 학년별 위계도 확보되어 있습니다."
+        : r.ca >= 0.2
+          ? "진로 연계 문장이 존재하나 전공 특수성이 약합니다. 지원 학과의 핵심 개념어가 등장하는 활동을 추가 배치하세요."
+          : "진로에 대한 구체적 문제의식이 부족합니다. 전공 관련 교과 이수 노력과 탐색 경험을 3학년 세특에 집중 배치할 필요가 있습니다.",
+      co: r.co >= 0.2
+        ? "협업·소통·나눔 경험이 고르게 분포되어 인성과 공동체 가치를 신뢰성 있게 뒷받침합니다."
+        : "개인 탐구 위주로 기술되어 있습니다. 모둠 내 역할, 갈등 조율, 또래 멘토링 에피소드를 발굴해 보완하세요."
+    };
+
+    const order = ["ac", "ca", "co"];
+    const cls = { ac: "blue", ca: "emerald", co: "amber" };
+    const icon = { ac: "fa-graduation-cap", ca: "fa-compass", co: "fa-users" };
+
+    $("consulting-cards").innerHTML = order.map(function (c) {
+      const topSub = Object.keys(TAXONOMY[c].subs)
+        .map(function (sk) { return { sk: sk, n: st.bySub[sk] || 0 }; })
+        .sort(function (a, b) { return b.n - a.n; })[0];
+      const weakSub = Object.keys(TAXONOMY[c].subs)
+        .map(function (sk) { return { sk: sk, n: st.bySub[sk] || 0 }; })
+        .sort(function (a, b) { return a.n - b.n; })[0];
+
+      return '<div class="bg-' + cls[c] + '-50/50 rounded-xl p-4 border border-' + cls[c] + '-100 space-y-2">' +
+        '<div class="flex items-center space-x-2 text-' + cls[c] + '-900 font-bold text-xs">' +
+          '<i class="fa-solid ' + icon[c] + ' text-' + cls[c] + '-600"></i>' +
+          '<span>' + TAXONOMY[c].label + ' (' + Math.round(r[c] * 100) + '%)</span></div>' +
+        '<p class="text-[11px] text-slate-600 leading-relaxed">' + fb[c] + '</p>' +
+        '<div class="text-[10px] text-slate-500 pt-1.5 border-t border-' + cls[c] + '-100 space-y-0.5">' +
+          '<p><strong class="text-slate-700">강점 항목</strong> · ' + esc(TAXONOMY[c].subs[topSub.sk]) + ' (' + topSub.n + '건)</p>' +
+          '<p><strong class="text-slate-700">보완 항목</strong> · ' + esc(TAXONOMY[c].subs[weakSub.sk]) + ' (' + weakSub.n + '건)</p>' +
+        '</div></div>';
+    }).join("");
+  },
+
+  counselSheet() {
+    const st = state.stats;
+    const major = MAJORS[$("select-target-major").value] || MAJORS.mechanical;
+
+    // 학년별 대표 문장 (신뢰도 상위)
+    const highlights = {};
+    ["1", "2", "3"].forEach(function (g) {
+      const pool = [];
+      state.activities.filter(function (a) { return a.grade === g; })
+        .forEach(function (a) { a.sentences.forEach(function (s) { pool.push({ s: s, a: a }); }); });
+      highlights[g] = pool.sort(function (x, y) { return y.s.conf - x.s.conf; }).slice(0, 3);
+    });
+
+    const gradeBlocks = ["1", "2", "3"].filter(function (g) { return highlights[g].length; }).map(function (g) {
+      return '<div class="border-l-2 border-slate-300 pl-3">' +
+        '<p class="font-bold text-slate-900 text-[11px] mb-1">' + g + '학년 대표 서술</p>' +
+        '<ul class="space-y-1">' + highlights[g].map(function (h) {
+          return '<li class="text-[11px] text-slate-600"><span class="font-semibold text-slate-800">[' + esc(h.a.title) + ']</span> ' + esc(h.s.text) + '</li>';
+        }).join("") + '</ul></div>';
+    }).join("");
+
+    const missing = major.requiredCourses.filter(function (c) { return !Render._fullText().includes(c); });
+
+    $("counsel-sheet").innerHTML =
+      '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">' +
+        '<div class="bg-slate-50 rounded-lg p-3 border border-slate-200"><p class="font-bold text-slate-800 mb-1">역량 분포</p>' +
+          '<p>학업 ' + Stats.pct(st.byCat.ac, st.total) + '% · 진로 ' + Stats.pct(st.byCat.ca, st.total) + '% · 공동체 ' + Stats.pct(st.byCat.co, st.total) + '%</p>' +
+          '<p class="text-slate-500 mt-1">총 ' + st.total + '문장 / 교사 수정 ' + st.edited + '건 / 재검토 권장 ' + st.lowConf + '건</p></div>' +
+        '<div class="bg-slate-50 rounded-lg p-3 border border-slate-200"><p class="font-bold text-slate-800 mb-1">목표 학과</p>' +
+          '<p>' + esc(major.name) + '</p>' +
+          '<p class="text-slate-500 mt-1">' + (missing.length ? '미확인 핵심과목: ' + esc(missing.join(", ")) : '핵심 권장과목 이수 확인 완료') + '</p></div>' +
+        '<div class="bg-slate-50 rounded-lg p-3 border border-slate-200"><p class="font-bold text-slate-800 mb-1">상담 시 확인할 것</p>' +
+          '<p class="text-slate-600">' + esc(major.interviewQuestions[0]) + '</p></div>' +
+      '</div>' + gradeBlocks;
+  },
+
+  _fullText() {
+    return (state.rawText || "") + " " + state.activities.map(function (a) { return a.title + " " + a.rawContent; }).join(" ");
+  },
+
+  majorDiagnostic() {
+    const sel = $("select-target-major");
+    const std = MAJORS[sel.value];
+    if (!std) return;
+    const fullText = Render._fullText();
+
+    const paint = function (containerId, courses, takenCls, missCls, missIcon) {
+      let n = 0;
+      $(containerId).innerHTML = courses.map(function (course) {
+        const taken = fullText.includes(course);
+        if (taken) n++;
+        return '<span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] ' + (taken ? takenCls : missCls) + '">' +
+          '<i class="fa-solid ' + (taken ? "fa-check" : missIcon) + ' mr-1 text-[10px]"></i>' + esc(course) + '</span>';
+      }).join("");
+      return n;
+    };
+
+    const reqCount = paint("required-courses-list", std.requiredCourses,
+      "font-bold bg-emerald-100 text-emerald-800 border border-emerald-300",
+      "font-medium bg-slate-100 text-slate-400 border border-dashed border-slate-300", "fa-xmark");
+    paint("recommended-courses-list", std.recommendedCourses,
+      "font-bold bg-blue-100 text-blue-800 border border-blue-300",
+      "font-medium bg-slate-100 text-slate-400 border border-dashed border-slate-300", "fa-minus");
+
+    const totalReq = std.requiredCourses.length;
+    const badge = $("major-course-score-badge");
+    if (reqCount === totalReq) {
+      badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800";
+      badge.textContent = "핵심과목 완벽 충족 (" + reqCount + "/" + totalReq + ")";
+    } else if (reqCount >= Math.ceil(totalReq / 2)) {
+      badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 text-amber-800";
+      badge.textContent = "핵심과목 보통 (" + reqCount + "/" + totalReq + ")";
+    } else {
+      badge.className = "px-2 py-0.5 rounded-full text-[10px] font-bold bg-rose-100 text-rose-800";
+      badge.textContent = "핵심과목 보완 필요 (" + reqCount + "/" + totalReq + ")";
+    }
+
+    const detected = std.coreKeywords.filter(function (k) { return fullText.includes(k); });
+    $("major-detected-keywords").innerHTML = detected.length
+      ? detected.map(function (k) { return '<span class="px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-700 text-[10px] font-semibold border border-indigo-200/60">#' + esc(k) + '</span>'; }).join(" ")
+      : '<span class="text-[10px] text-slate-400 italic">관련 핵심 키워드가 드뭅니다.</span>';
+
+    const hasMethod = /모델링|시뮬레이션|오차|검증|실험\s*설계|알고리즘|회귀|증명|가설|변인\s*통제/.test(fullText);
+    const hasApply  = /최적화|설계|사회적|융합|산업|해결\s*방안|구현|메커니즘|공정/.test(fullText);
+
+    let depth = { lv: "Level 2: 기초 개념 확장", cls: "bg-blue-100 text-blue-800", desc: "교과 개념을 성실히 이해하고 전공 호기심을 표현하는 단계입니다. 개념을 스스로 확장한 흔적을 더 남기세요." };
+    if (hasMethod && hasApply && detected.length >= 4) {
+      depth = { lv: "Level 4: 학제간 심화 융합", cls: "bg-purple-100 text-purple-800", desc: "수학·과학적 모델링과 실험 설계가 현실 산업 시스템 적용까지 유기적으로 확장된 최상위권 수준입니다." };
+    } else if (hasMethod || detected.length >= 3) {
+      depth = { lv: "Level 3: 심화 실험 및 모델링", cls: "bg-emerald-100 text-emerald-800", desc: "공식 유도, 수치 시뮬레이션, 오차 원인 고찰 등 자기주도적 탐구 과정이 드러납니다." };
+    }
+
+    const db = $("major-depth-badge");
+    db.className = "px-2 py-0.5 rounded-full text-[10px] font-bold " + depth.cls;
+    db.textContent = depth.lv;
+
+    $("major-depth-content").innerHTML =
+      '<div class="text-[11px] text-slate-700 leading-relaxed">' +
+        '<p class="font-bold text-slate-900 mb-1 flex items-center gap-1"><i class="fa-solid fa-graduation-cap text-indigo-500"></i> 사정관 평가 포인트</p>' +
+        '<p class="text-slate-600">' + esc(std.evaluationFocus) + '</p>' +
+        '<div class="mt-2 p-2.5 rounded-lg bg-white border border-slate-200/80 text-[11px] text-slate-700">' +
+          '<strong>현재 학생부 탐구 진단:</strong> ' + esc(depth.desc) + '</div></div>';
+
+    $("major-interview-questions").innerHTML = std.interviewQuestions.map(function (q, i) {
+      return '<li class="flex items-start gap-1.5 p-1.5 rounded-lg bg-white/70 border border-amber-200/50">' +
+        '<span class="w-4 h-4 rounded-full bg-amber-500 text-white font-bold text-[10px] flex items-center justify-center flex-shrink-0 mt-0.5">' + (i + 1) + '</span>' +
+        '<span>' + esc(q) + '</span></li>';
+    }).join("");
+  }
+};
+
+/* ================================================================ EXPORT */
+const Export = {
+  csv() {
+    if (!state.activities.length) return;
+    const rows = [["학년", "영역", "활동명", "문장 원문", "역량", "세부항목", "자동분류 신뢰도", "교사수정여부"]];
+    state.activities.forEach(function (act) {
+      act.sentences.forEach(function (s) {
+        rows.push([
+          act.grade + "학년", act.section, act.title, s.text,
+          TAXONOMY[s.cat].label,
+          s.sub ? TAXONOMY[s.cat].subs[s.sub] : "근거 불충분",
+          Math.round(s.conf * 100) + "%",
+          s.edited ? "수정" : ""
+        ]);
+      });
+    });
+    const csv = "﻿" + rows.map(function (r) {
+      return r.map(function (c) { return '"' + String(c).replace(/"/g, '""') + '"'; }).join(",");
+    }).join("\r\n");
+    Export._download(csv, "text/csv;charset=utf-8;", "생기부_역량분석_" + (state.student.name || "결과") + ".csv");
+    toast("CSV 파일을 내려받았습니다.");
+  },
+
+  sheetText() {
+    const st = state.stats;
+    const major = MAJORS[$("select-target-major").value];
+    const L = [];
+    L.push("■ 학생부종합전형 역량 흐름 분석 요약");
+    L.push("대상: " + (state.student.name || "학생") + " / " + (state.student.school || ""));
+    L.push("목표 학과: " + major.name);
+    L.push("총 " + st.total + "문장 · 학업 " + Stats.pct(st.byCat.ac, st.total) + "% / 진로 " + Stats.pct(st.byCat.ca, st.total) + "% / 공동체 " + Stats.pct(st.byCat.co, st.total) + "%");
+    L.push("");
+    CATS.forEach(function (c) {
+      L.push("[" + TAXONOMY[c].label + "]");
+      Object.keys(TAXONOMY[c].subs).forEach(function (sk) {
+        L.push("  - " + TAXONOMY[c].subs[sk] + ": " + (st.bySub[sk] || 0) + "건");
+      });
+    });
+    L.push("");
+    L.push("[상담 시 확인할 질문]");
+    major.interviewQuestions.forEach(function (q, i) { L.push("  " + (i + 1) + ". " + q); });
+    return L.join("\n");
+  },
+
+  copySheet() {
+    const text = Export.sheetText();
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function () { toast("요약 시트를 클립보드에 복사했습니다."); },
+        function () { Export._fallbackCopy(text); });
+    } else { Export._fallbackCopy(text); }
+  },
+
+  _fallbackCopy(text) {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    try { document.execCommand("copy"); toast("요약 시트를 복사했습니다."); }
+    catch (e) { toast("복사에 실패했습니다. 시트를 직접 선택해 주세요."); }
+    document.body.removeChild(ta);
+  },
+
+  _download(content, mime, filename) {
+    const blob = new Blob([content], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = filename;
+    document.body.appendChild(a); a.click(); document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+  }
+};
+
+/* ==================================================================== UI */
+const UI = {
+  /* ---------- dialog / progress ---------- */
+  dialog(opts) {
+    const modal = $("custom-dialog"), box = $("dialog-box");
+    if (!modal) return;
+    $("dialog-title").textContent = opts.title;
+    $("dialog-message").innerHTML = opts.message;
+
+    const wrap = $("dialog-icon-wrapper"), icon = $("dialog-icon");
+    const skin = { error: ["rose", "fa-circle-xmark"], warning: ["amber", "fa-triangle-exclamation"], info: ["blue", "fa-circle-info"] }[opts.type || "info"];
+    wrap.className = "w-10 h-10 rounded-xl bg-" + skin[0] + "-100 text-" + skin[0] + "-600 flex items-center justify-center flex-shrink-0";
+    icon.className = "fa-solid " + skin[1] + " text-lg";
+
+    const ocr = $("dialog-btn-ocr"), paste = $("dialog-btn-paste");
+    if (opts.onOcr) { ocr.classList.remove("hidden"); ocr.onclick = opts.onOcr; } else ocr.classList.add("hidden");
+    if (opts.enablePaste) {
+      paste.classList.remove("hidden");
+      paste.onclick = function () { UI.closeDialog(); $("tab-btn-text").click(); $("direct-text-input").focus(); };
+    } else paste.classList.add("hidden");
+
+    modal.classList.remove("hidden");
+    setTimeout(function () { box.classList.remove("scale-95", "opacity-0"); box.classList.add("scale-100", "opacity-100"); }, 10);
+  },
+
+  closeDialog() {
+    const modal = $("custom-dialog"), box = $("dialog-box");
+    if (!modal) return;
+    box.classList.remove("scale-100", "opacity-100");
+    box.classList.add("scale-95", "opacity-0");
+    setTimeout(function () { modal.classList.add("hidden"); }, 150);
+  },
+
+  progress(show, title, pct) {
+    const view = $("processing-view"), hub = $("upload-hub");
+    if (show) {
+      hub.classList.add("hidden");
+      view.classList.remove("hidden");
+      UI.progressUpdate(title || "", pct || 0);
+    } else {
+      view.classList.add("hidden");
+    }
+  },
+
+  progressUpdate(title, pct) {
+    if (title) $("process-title").textContent = title;
+    $("process-bar").style.width = pct + "%";
+    $("process-percent").textContent = pct + "%";
+  },
+
+  /* ---------- main flow ---------- */
+  process(rawText, sourceName) {
+    const reflowed = rawText.indexOf("\n") === -1 ? Parse.reflow(rawText) : rawText;
+    state.rawText = reflowed;
+    state.fileName = sourceName;
+    state.student = Parse.extractStudent(reflowed);
+    state.activities = Parse.segment(reflowed);
+    state.history = [];
+    state.selectedSentId = null;
+
+    const lines = reflowed.split("\n").length;
+    state.parseQuality = state.activities.length <= 1 && lines < 5
+      ? "줄 구분이 거의 없는 원문입니다. 결과가 한 덩어리로 보이면 텍스트 붙여넣기 탭에서 영역별로 나누어 입력해 주세요."
+      : "영역 " + new Set(state.activities.map(function (a) { return a.section; })).size + "종 / " + lines + "행 인식";
+
+    UI.progress(false);
+    $("upload-hub").classList.add("hidden");
+    $("result-dashboard").classList.remove("hidden");
+    $("btn-reset-all").classList.remove("hidden");
+
+    Render.all();
+    $("btn-undo").disabled = true;
+  },
+
+  async handlePdf(file) {
+    if (!file.name.toLowerCase().endsWith(".pdf") && file.type !== "application/pdf") {
+      UI.dialog({ title: "파일 형식 오류", message: "선택한 파일이 PDF 형식이 아닙니다. (.pdf 파일을 선택해 주세요)", type: "error" });
+      return;
+    }
+    state.fileName = file.name;
+    UI.progress(true, "PDF 문서 파싱 준비 중...", 10);
+
+    try {
+      const buf = await file.arrayBuffer();
+      const task = pdfjsLib.getDocument({
+        data: buf,
+        cMapUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/cmaps/",
+        cMapPacked: true,
+        standardFontDataUrl: "https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/standard_fonts/"
+      });
+      task.onProgress = function (p) {
+        if (p.total > 0) UI.progressUpdate("PDF 데이터 로딩 중...", Math.round((p.loaded / p.total) * 40));
+      };
+
+      const doc = await task.promise;
+      let text = "";
+      for (let i = 1; i <= doc.numPages; i++) {
+        UI.progressUpdate("문서 텍스트 추출 중 (" + i + "/" + doc.numPages + " 페이지)...", 40 + Math.round((i / doc.numPages) * 50));
+        const page = await doc.getPage(i);
+        text += Parse.reflowTextContent(await page.getTextContent()) + "\n";
+      }
+      text = text.trim();
+
+      if (text.replace(/\s/g, "").length < 35) {
+        UI.progress(false);
+        UI.dialog({
+          title: "텍스트 미추출 안내 (스캔본 감지)",
+          message: "업로드한 PDF(" + esc(file.name) + ")는 종이 스캔본(이미지)이거나 글자 복사가 제한된 보안 PDF입니다.<br><br>" +
+                   "<strong>[스캔본 OCR로 읽기]</strong>로 브라우저 내부 OCR 판독을 시도하거나, <strong>[텍스트 직접 붙여넣기]</strong>로 진행할 수 있습니다.",
+          type: "warning", enablePaste: true,
+          onOcr: function () { UI.runOcr(doc); }
+        });
+        return;
+      }
+
+      UI.progressUpdate("역량별 흐름 분석 및 구조화 중...", 95);
+      setTimeout(function () { UI.process(text, file.name); }, 250);
+
+    } catch (err) {
+      console.error("PDF Parsing Error:", err);
+      UI.progress(false);
+      UI.dialog({
+        title: "PDF 읽기 오류",
+        message: "PDF를 읽는 중 오류가 발생했습니다.<br><span class=\"text-xs text-rose-500 font-mono\">" + esc(err.message) + "</span><br><br>암호로 잠긴 파일인지 확인하시거나 텍스트 직접 입력 탭을 이용해 주세요.",
+        type: "error", enablePaste: true
+      });
+    }
+  },
+
+  async runOcr(doc) {
+    UI.closeDialog();
+    UI.progress(true, "스캔본 OCR 문자 인식 엔진 가동 중...", 5);
+    try {
+      if (typeof Tesseract === "undefined") throw new Error("OCR 라이브러리를 불러오지 못했습니다.");
+      const pages = Math.min(doc.numPages, 10);
+      let out = "";
+      for (let i = 1; i <= pages; i++) {
+        const base = 10 + Math.round((i / pages) * 80);
+        UI.progressUpdate("이미지에서 한글 인식 중 (" + i + "/" + pages + " 페이지)...", base);
+        const page = await doc.getPage(i);
+        const viewport = page.getViewport({ scale: 2.0 });
+        const canvas = document.createElement("canvas");
+        canvas.width = viewport.width; canvas.height = viewport.height;
+        await page.render({ canvasContext: canvas.getContext("2d"), viewport: viewport }).promise;
+        const res = await Tesseract.recognize(canvas, "kor+eng", {
+          logger: function (m) {
+            if (m.status === "recognizing text") {
+              UI.progressUpdate("페이지 " + i + " 문자 판독 중...", Math.min(base + Math.round((m.progress || 0) * 8), 95));
+            }
+          }
+        });
+        out += "\n" + (res.data ? res.data.text : "") + "\n";
+        canvas.width = canvas.height = 0;
+      }
+      if (!out.trim()) throw new Error("OCR 인식 결과가 비어 있습니다.");
+      UI.progressUpdate("OCR 텍스트 역량 분석 중...", 98);
+      setTimeout(function () { UI.process(out, state.fileName + " (OCR 판독)"); }, 250);
+    } catch (e) {
+      console.error("OCR Error:", e);
+      UI.progress(false);
+      UI.dialog({ title: "OCR 인식 실패", message: "스캔본 해상도가 낮거나 문자를 추출할 수 없습니다. 텍스트 직접 붙여넣기를 이용해 주세요.", type: "error", enablePaste: true });
+    }
+  },
+
+  /* ---------- reclassification ---------- */
+  findSentence(id) {
+    for (const act of state.activities) {
+      const s = act.sentences.find(function (x) { return x.id === id; });
+      if (s) return s;
+    }
+    return null;
+  },
+
+  move(sentId, targetCat, recordHistory) {
+    const s = UI.findSentence(sentId);
+    if (!s || s.cat === targetCat) return;
+    if (recordHistory !== false) state.history.push({ id: sentId, from: s.cat, fromSub: s.sub });
+    s.cat = targetCat;
+    s.sub = Classify.resubFor(s.text, targetCat);
+    s.edited = (s.cat !== s.auto);
+    s.conf = Math.max(s.conf, 0.95);   // 교사 판단은 최고 신뢰도
+    state.selectedSentId = sentId;
+    $("btn-undo").disabled = state.history.length === 0;
+    Render.all();
+  },
+
+  cycle(sentId) {
+    const s = UI.findSentence(sentId);
+    if (!s) return;
+    const next = { ac: "ca", ca: "co", co: "ac" }[s.cat];
+    UI.move(sentId, next);
+  },
+
+  undo() {
+    const last = state.history.pop();
+    if (!last) return;
+    const s = UI.findSentence(last.id);
+    if (s) { s.cat = last.from; s.sub = last.fromSub; s.edited = (s.cat !== s.auto); }
+    $("btn-undo").disabled = state.history.length === 0;
+    Render.all();
+    toast("마지막 재분류를 되돌렸습니다.");
+  },
+
+  /* ---------- event binding ---------- */
+  bindTable() {
+    let dragged = null;
+
+    $$(".sentence-chip").forEach(function (chip) {
+      chip.addEventListener("dragstart", function (e) {
+        dragged = chip.dataset.sentId;
+        e.dataTransfer.setData("text/plain", dragged);
+        e.dataTransfer.effectAllowed = "move";
+        chip.classList.add("opacity-50");
+      });
+      chip.addEventListener("dragend", function () {
+        chip.classList.remove("opacity-50");
+        $$(".competency-dropzone").forEach(function (z) { z.classList.remove("drag-over"); });
+      });
+      chip.addEventListener("click", function (e) {
+        if (e.target.closest(".btn-cycle")) return;
+        state.selectedSentId = chip.dataset.sentId;
+        $$(".sentence-chip").forEach(function (c) { c.classList.toggle("is-selected", c === chip); });
+      });
+      chip.addEventListener("keydown", function (e) {
+        const map = { "1": "ac", "2": "ca", "3": "co" };
+        if (map[e.key]) { e.preventDefault(); UI.move(chip.dataset.sentId, map[e.key]); }
+        else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); UI.cycle(chip.dataset.sentId); }
+      });
+    });
+
+    $$(".btn-cycle").forEach(function (b) {
+      b.addEventListener("click", function (e) { e.stopPropagation(); UI.cycle(b.dataset.sentId); });
+    });
+
+    $$(".competency-dropzone").forEach(function (zone) {
+      zone.addEventListener("dragover", function (e) { e.preventDefault(); zone.classList.add("drag-over"); });
+      zone.addEventListener("dragleave", function () { zone.classList.remove("drag-over"); });
+      zone.addEventListener("drop", function (e) {
+        e.preventDefault();
+        zone.classList.remove("drag-over");
+        const id = e.dataTransfer.getData("text/plain") || dragged;
+        if (id && zone.dataset.cat) UI.move(id, zone.dataset.cat);
+      });
+    });
+
+    // 선택 문장으로 스크롤 복원
+    if (state.selectedSentId) {
+      const el = document.querySelector('[data-sent-id="' + state.selectedSentId + '"]');
+      if (el && el.focus) el.focus({ preventScroll: false });
+    }
+  },
+
+  reset() {
+    state.rawText = ""; state.fileName = ""; state.activities = [];
+    state.student = { name: "", school: "" }; state.history = []; state.selectedSentId = null;
+    $("upload-hub").classList.remove("hidden");
+    $("result-dashboard").classList.add("hidden");
+    $("btn-reset-all").classList.add("hidden");
+    $("pdf-file-input").value = "";
+    $("direct-text-input").value = "";
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  },
+
+  loadSample() {
+    UI.process(SAMPLE_TEXT, "2027학년도_기계공학_우수_학생부_샘플.pdf");
+    toast("샘플 학생부를 불러왔습니다.");
+  },
+
+  init() {
+    $$("[data-app-version]").forEach(function (el) { el.textContent = "ver." + VERSION; });
+
+    // 전공 셀렉트 구성
+    const sel = $("select-target-major");
+    sel.innerHTML = Object.keys(MAJORS).map(function (k) {
+      return '<option value="' + k + '">' + esc(MAJORS[k].name) + '</option>';
+    }).join("");
+    sel.addEventListener("change", function () { Render.majorDiagnostic(); Render.counselSheet(); });
+
+    // 탭
+    const tp = $("tab-btn-pdf"), tt = $("tab-btn-text");
+    const ACTIVE = "px-4 py-2 text-sm font-bold rounded-xl bg-white shadow-sm border border-slate-200/70 transition-all flex items-center space-x-2";
+    const IDLE   = "px-4 py-2 text-sm font-semibold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center space-x-2";
+    tp.addEventListener("click", function () {
+      tp.className = ACTIVE + " text-blue-600"; tt.className = IDLE;
+      tp.setAttribute("aria-selected", "true"); tt.setAttribute("aria-selected", "false");
+      $("tab-pane-pdf").classList.remove("hidden"); $("tab-pane-text").classList.add("hidden");
+    });
+    tt.addEventListener("click", function () {
+      tt.className = ACTIVE + " text-indigo-600"; tp.className = IDLE;
+      tt.setAttribute("aria-selected", "true"); tp.setAttribute("aria-selected", "false");
+      $("tab-pane-text").classList.remove("hidden"); $("tab-pane-pdf").classList.add("hidden");
+    });
+
+    // 업로드
+    const dz = $("drop-zone"), fi = $("pdf-file-input");
+    dz.addEventListener("click", function () { fi.click(); });
+    dz.addEventListener("keydown", function (e) { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); fi.click(); } });
+    dz.addEventListener("dragover", function (e) { e.preventDefault(); dz.classList.add("border-blue-500", "bg-blue-50/50"); });
+    dz.addEventListener("dragleave", function () { dz.classList.remove("border-blue-500", "bg-blue-50/50"); });
+    dz.addEventListener("drop", function (e) {
+      e.preventDefault(); dz.classList.remove("border-blue-500", "bg-blue-50/50");
+      if (e.dataTransfer.files && e.dataTransfer.files.length) UI.handlePdf(e.dataTransfer.files[0]);
+    });
+    fi.addEventListener("change", function (e) { if (e.target.files && e.target.files.length) UI.handlePdf(e.target.files[0]); });
+
+    $("btn-parse-text").addEventListener("click", function () {
+      const text = $("direct-text-input").value.trim();
+      if (!text) { UI.dialog({ title: "입력 내용 확인", message: "분석할 생기부 텍스트를 입력창에 붙여넣어 주세요.", type: "warning" }); return; }
+      UI.process(text, "직접입력_생기부");
+    });
+
+    $("btn-load-sample").addEventListener("click", UI.loadSample);
+    $("btn-reset-all").addEventListener("click", UI.reset);
+    $("btn-export-csv").addEventListener("click", Export.csv);
+    $("btn-copy-sheet").addEventListener("click", Export.copySheet);
+    $("btn-print").addEventListener("click", function () { window.print(); });
+    $("btn-undo").addEventListener("click", UI.undo);
+    $("dialog-btn-confirm").addEventListener("click", UI.closeDialog);
+
+    // 필터
+    $$(".btn-filter-grade").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        $$(".btn-filter-grade").forEach(function (b) {
+          b.className = "btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900";
+        });
+        btn.className = "btn-filter-grade px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-800 shadow-sm";
+        state.filter.grade = btn.dataset.filterGrade;
+        Render.table();
+      });
+    });
+    $("filter-section").addEventListener("change", function (e) { state.filter.section = e.target.value; Render.table(); });
+    $("filter-lowconf").addEventListener("change", function (e) { state.filter.lowConfOnly = e.target.checked; Render.table(); });
+
+    let searchTimer = null;
+    $("search-keyword").addEventListener("input", function (e) {
+      clearTimeout(searchTimer);
+      const v = e.target.value.trim().toLowerCase();
+      searchTimer = setTimeout(function () { state.filter.search = v; Render.table(); }, 160);
+    });
+
+    // 전역 키
+    document.addEventListener("keydown", function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
+        if (!$("result-dashboard").classList.contains("hidden")) { e.preventDefault(); UI.undo(); }
+      }
+      if (e.key === "Escape") UI.closeDialog();
+    });
+
+    if (window.pdfjsLib) {
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+    }
+  }
+};
+
+/* ---------------------------------------------------------------- SAMPLE */
+const SAMPLE_TEXT = [
+  "성명: 김진우    학교: 한국고등학교",
+  "[1학년]",
+  "국어: 현대시 분석 프로젝트에서 시어의 다의성과 상징성을 구조주의적 관점에서 비판적으로 해석함. 모둠 토의 시 경청하는 태도로 팀원들의 갈등을 조율함.",
+  "수학: 다항식의 연산과 복소수의 기하학적 성질을 탐구하고 프랙탈 구조의 점화식 원리를 스스로 유도해 발표함.",
+  "자율활동",
+  "학급 반장으로서 학급 규칙을 민주적으로 수립하고 솔선수범하여 면학 분위기를 조성함.",
+  "동아리활동",
+  "수학과학 융합동아리에서 미적분을 이용한 감염병 확산 모델(SIR 모델)을 설계하고 파이썬 코딩으로 수치 시뮬레이션을 수행함.",
+  "[2학년]",
+  "수학II: 도함수의 활용 단원에서 실생활의 최적화 문제를 미분방정식으로 모델링하여 최적 경로를 산출함.",
+  "물리학I: 전자기 유도 현상을 심화 탐구하며 패러데이 법칙과 렌츠의 법칙 실험에서 오차 원인을 분석함. 팀원들과 역할을 분담하여 성실하게 보고서를 완성함.",
+  "화학I: 반응 속도에 미치는 촉매의 작용을 아레니우스 식과 활성화 에너지를 연계하여 수학적으로 증명함.",
+  "기하: 공간도형과 벡터의 내적을 활용하여 로봇 매니퓰레이터의 링크 회전 각도와 3차원 위치 좌표 변환을 계산함.",
+  "진로활동",
+  "기계공학 자율주행 모빌리티의 에너지 소비 최적화 기술에 흥미를 느끼고, 뉴턴 운동 법칙과 브레이크 마찰열 에너지 변환 과정을 수학적으로 모델링하여 발표함.",
+  "[3학년]",
+  "미적분: 테일러 급수를 활용해 초월함수의 근삿값을 계산하는 알고리즘을 탐구하고 기계 진동 감쇠 방정식에 적용하는 방안을 제안함.",
+  "물리학II: 베르누이 정리와 유체 연속 방정식으로 풍력 발전기 블레이드의 양력·항력 계수를 산출하고, 3D 프린터로 모형을 제작하여 유속에 따른 발전 효율을 정량 검증함.",
+  "화학II: 화학 평형 이동과 르샤틀리에 원리를 수소 에너지 생산 공정의 열역학적 효율과 결합하여 심층 탐구 보고서를 작성함.",
+  "행동특성 및 종합의견",
+  "매사 지적 호기심이 뛰어나며 어려운 기계역학 문제에 직면했을 때 포기하지 않고 끈기 있게 파고드는 자기주도적 학업 태도를 지님. 타인을 배려하고 학급의 궂은일에 앞장서는 모범적인 학생임."
+].join("\n");
+
+/* ------------------------------------------------------------------ BOOT */
+document.addEventListener("DOMContentLoaded", UI.init);
+
+return { VERSION: VERSION, state: state, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
+})();
+</script>
+</body>
+</html>

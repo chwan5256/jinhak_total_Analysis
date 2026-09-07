@@ -1,0 +1,9 @@
+.DS_Store
+Thumbs.db
+node_modules/
+*.log
+# 학생 개인정보가 담긴 파일은 절대 커밋하지 않는다
+*.pdf
+!docs/**/*.pdf
+생기부*
+학생부*
