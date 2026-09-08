@@ -7,3 +7,19 @@ node_modules/
 !docs/**/*.pdf
 생기부*
 학생부*
+
+# ─── 학생 개인정보·참고자료 절대 차단 ───────────────────────────
+# 이 저장소는 공개(public)다. 아래 경로에 넣은 것은 git이 절대 보지 않는다.
+_context/
+_private/
+_students/
+*.hwp
+*.hwpx
+*.xlsx
+*.xls
+*.csv
+!docs/**/*.csv
+학생부*
+생기부*
+성적*
+내신*
