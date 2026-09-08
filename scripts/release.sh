@@ -58,7 +58,8 @@ fi
 # 로컬 사전 검사 — Actions에서 도는 것과 같은 문법 검사
 node - <<'JS'
 const fs = require('fs');
-const html = fs.readFileSync('index.html', 'utf8');
+// Windows 체크아웃 시 CRLF가 될 수 있으므로 정규화 후 탐색한다.
+const html = fs.readFileSync('index.html', 'utf8').replace(/\r\n/g, '\n');
 const i = html.lastIndexOf('<script>\n"use strict";');
 const j = html.lastIndexOf('</script>');
 if (i < 0 || j < 0) { console.error('앱 스크립트 블록을 찾지 못했습니다.'); process.exit(1); }
