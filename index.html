@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="나이스 학교생활기록부를 브라우저 내부에서만 분석하여 학업·진로·공동체 역량 흐름과 전공 적합성을 진단하는 고3 담임 상담 도구.">
   <meta name="robots" content="noindex, nofollow">
-  <title>생활기록부 역량 흐름 분석기 ver.2026.5</title>
+  <title>생활기록부 역량 흐름 분석기 ver.2026.6</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
 
@@ -85,7 +85,7 @@
         <div>
           <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">생활기록부 역량 흐름 분석기</h1>
           <p class="text-[11px] text-slate-500 leading-tight">
-            <span data-app-version>ver.2026.5</span> · 학종 평가요소 3역량 10항목 기준 · 100% 브라우저 로컬 분석
+            <span data-app-version>ver.2026.6</span> · 학종 평가요소 3역량 10항목 기준 · 100% 브라우저 로컬 분석
           </p>
         </div>
       </div>
@@ -335,6 +335,37 @@
         </div>
       </div>
 
+
+      <!-- 지원 가능성 — data/admissions.json 이 있을 때만 표시 -->
+      <div id="peer-panel" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4 page-break">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+          <div class="flex items-center space-x-2.5">
+            <div class="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-scale-balanced"></i></div>
+            <div>
+              <h3 class="text-sm sm:text-base font-bold text-slate-900">비슷한 내신대 비교 · 지원 가능성</h3>
+              <p class="text-[11px] text-slate-500">전년도 대학 발표 입시결과와 대조합니다. <span id="peer-src"></span></p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 no-print">
+            <select id="peer-kind" class="text-xs font-semibold bg-slate-100 border-none rounded-xl px-3 py-2 text-slate-700 focus:ring-2 focus:ring-emerald-500 cursor-pointer">
+              <option value="all">모든 전형</option>
+              <option value="교과">학생부교과</option>
+              <option value="종합">학생부종합</option>
+              <option value="기타">기타 전형</option>
+            </select>
+            <input type="text" id="peer-search" placeholder="대학·학과 검색" aria-label="대학 학과 검색"
+              class="w-40 px-3 py-1.5 text-xs bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all">
+          </div>
+        </div>
+
+        <div class="grid grid-cols-3 gap-3 text-center" id="peer-counts"></div>
+        <div id="peer-rows" class="space-y-1.5 max-h-[420px] overflow-y-auto pr-1"></div>
+        <p class="text-[10px] text-slate-400 leading-relaxed border-t border-slate-100 pt-2">
+          대학마다 컷 정의가 다릅니다(평균·50%컷·70%컷·85%컷). 없는 값은 채우지 않았습니다.
+          전형 방법·수능최저·모집인원 변동은 반영되어 있지 않으므로, 이 표는 <strong>대화를 시작하는 좌표</strong>이지 합격 예측이 아닙니다.
+        </p>
+      </div>
+
       <!-- Grade-wise flow -->
       <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4 page-break">
         <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
@@ -509,7 +540,7 @@
   </div>
 
   <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400 no-print">
-    <p>© 2026/2027 생활기록부 역량 흐름 분석기 · <span data-app-version>ver.2026.5</span> · All analysis is performed strictly in client-side memory.</p>
+    <p>© 2026/2027 생활기록부 역량 흐름 분석기 · <span data-app-version>ver.2026.6</span> · All analysis is performed strictly in client-side memory.</p>
   </footer>
 
 <script>
@@ -522,7 +553,7 @@
 const App = (() => {
 
 /* ---------------------------------------------------------------- CONST */
-const VERSION = "2026.5";
+const VERSION = "2026.6";
 /** 이 값 미만이면 "교사 재검토 권장"으로 표시한다. 학업/진로 경계 문장을 놓치지 않기 위한 안전망. */
 const CONF_LOW = 0.60;
 
@@ -1157,6 +1188,8 @@ const state = {
   parseQuality: "",
   sourceFormat: "",
   transcript: { courses: [], gpa: null, zsum: null },
+  admissions: null,          // data/admissions.json (없으면 null)
+  peerFilter: { kind: "all", q: "" },
   filter: { grade: "all", section: "all", search: "", lowConfOnly: false },
   stats: null,
   history: [],
@@ -1448,6 +1481,7 @@ const Render = {
     Stats.compute();
     Render.summary();
     Render.scorePanel();
+    Render.peerPanel();
     Render.gradeFlow();
     Render.table();
     Render.consulting();
@@ -1555,6 +1589,95 @@ const Render = {
       '다른 학교 같은 내신대 학생과의 비교는 아직 할 수 없습니다.</p>' +
       '<p class="mt-1 text-slate-500">참고 자료(합격 사례·내신대별 분포 등)를 연결하면 이 자리에 ' +
       '<strong>' + (gpa.overall !== null ? gpa.overall.toFixed(2) + "등급대" : "해당 내신대") + '</strong> 기준 비교가 채워집니다.</p>';
+  },
+
+  /**
+   * 전년도 입시결과와 대조해 지원 가능성 스펙트럼을 그린다.
+   * 등급은 낮을수록 좋다. 합격선(cut)이 학생 내신보다 높은 숫자면 학생이 유리하다.
+   */
+  peerPanel() {
+    const panel = $("peer-panel");
+    const db = state.admissions;
+    const gpa = state.transcript && state.transcript.gpa ? state.transcript.gpa.overall : null;
+
+    if (!db || !db.rows || !db.rows.length || gpa === null) { panel.classList.add("hidden"); return; }
+    panel.classList.remove("hidden");
+
+    $("peer-src").textContent = "수록 " + db.meta.count + "건 · " + db.meta.universities.join(" · ");
+
+    const f = state.peerFilter;
+    const q = (f.q || "").toLowerCase();
+    const mine = state.transcript.gpa.byArea || {};
+
+    const scored = db.rows.map(function (r) {
+      const cut = r.cut || {};
+      // 비교 기준은 평균을 우선하고, 없으면 50%컷 → 85%컷 순으로 대체한다.
+      const base = cut.avg !== undefined ? cut.avg
+                 : cut.p50 !== undefined ? cut.p50
+                 : cut.p85 !== undefined ? cut.p85 : null;
+      if (base === null) return null;
+      const diff = Math.round((base - gpa) * 100) / 100;
+      const band = diff > 0.30 ? "여유" : diff >= -0.15 ? "적정" : "도전";
+      return { r: r, base: base, diff: diff, band: band };
+    }).filter(Boolean).filter(function (x) {
+      if (f.kind !== "all" && x.r.kind !== f.kind) return false;
+      if (q && (x.r.u + " " + x.r.unit + " " + x.r.track + " " + (x.r.col || "")).toLowerCase().indexOf(q) < 0) return false;
+      return true;
+    });
+
+    const bands = { "여유": 0, "적정": 0, "도전": 0 };
+    scored.forEach(function (x) { bands[x.band]++; });
+    const tone = { "여유": "emerald", "적정": "blue", "도전": "rose" };
+    $("peer-counts").innerHTML = ["여유", "적정", "도전"].map(function (b) {
+      return '<div class="bg-' + tone[b] + '-50 border border-' + tone[b] + '-200 rounded-xl py-2">' +
+        '<p class="text-[10px] text-' + tone[b] + '-700 font-semibold">' + b + '</p>' +
+        '<p class="text-lg font-black text-' + tone[b] + '-900">' + bands[b] + '</p></div>';
+    }).join("");
+
+    // 내신에 가까운 순으로, 화면에는 상위 60건만
+    scored.sort(function (a, b) { return Math.abs(a.diff) - Math.abs(b.diff); });
+
+    $("peer-rows").innerHTML = scored.slice(0, 60).map(function (x) {
+      const r = x.r, cut = r.cut || {};
+      const bits = [];
+      if (cut.p50 !== undefined) bits.push("50%컷 " + cut.p50);
+      if (cut.p85 !== undefined) bits.push("85%컷 " + cut.p85);
+      if (cut.best !== undefined) bits.push("최고 " + cut.best);
+      if (r.rate) bits.push("경쟁률 " + (Math.round(r.rate * 10) / 10));
+
+      // 교과별 등급이 있으면 학생의 교과별 등급과 직접 대조한다
+      let area = "";
+      if (cut.byArea) {
+        const parts = Object.keys(cut.byArea).map(function (k) {
+          const theirs = cut.byArea[k], ours = mine[k];
+          if (ours === undefined) return '<span class="text-slate-400">' + k + ' ' + theirs + '</span>';
+          const d = Math.round((theirs - ours) * 100) / 100;
+          const c = d >= 0.1 ? "text-emerald-700" : d <= -0.1 ? "text-rose-700" : "text-slate-500";
+          return '<span class="' + c + '">' + k + ' ' + theirs + '<span class="opacity-60">(' + (d > 0 ? "+" : "") + d + ')</span></span>';
+        });
+        area = '<div class="flex flex-wrap gap-x-2.5 gap-y-0.5 mt-1 text-[10px]">' + parts.join("") + '</div>';
+      }
+
+      return '<div class="flex items-start gap-2.5 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50/70">' +
+        '<span class="px-1.5 py-0.5 rounded text-[10px] font-bold flex-shrink-0 mt-0.5 bg-' + tone[x.band] + '-100 text-' + tone[x.band] + '-800">' + x.band + '</span>' +
+        '<div class="flex-1 min-w-0">' +
+          '<p class="text-[11px] font-bold text-slate-900 truncate">' + esc(r.u) + ' · ' + esc(r.unit) + '</p>' +
+          '<p class="text-[10px] text-slate-500 truncate">' + esc(r.track) + (r.col ? " · " + esc(r.col) : "") + (bits.length ? " · " + esc(bits.join(" · ")) : "") + '</p>' +
+          area +
+        '</div>' +
+        '<div class="text-right flex-shrink-0">' +
+          '<p class="text-[11px] font-black text-slate-800 tabular-nums">' + x.base.toFixed(2) + '</p>' +
+          '<p class="text-[10px] tabular-nums text-' + tone[x.band] + '-700">' + (x.diff > 0 ? "+" : "") + x.diff.toFixed(2) + '</p>' +
+        '</div></div>';
+    }).join("");
+
+    if (scored.length > 60) {
+      $("peer-rows").insertAdjacentHTML("beforeend",
+        '<p class="text-[10px] text-slate-400 text-center py-2">내신에 가까운 60건만 표시 · 전체 ' + scored.length + '건 (검색으로 좁혀 보세요)</p>');
+    }
+    if (!scored.length) {
+      $("peer-rows").innerHTML = '<p class="text-xs text-slate-400 text-center py-6">조건에 맞는 모집단위가 없습니다.</p>';
+    }
   },
 
     gradeFlow() {
@@ -2288,6 +2411,25 @@ const UI = {
         if (!$("result-dashboard").classList.contains("hidden")) { e.preventDefault(); UI.undo(); }
       }
       if (e.key === "Escape") UI.closeDialog();
+    });
+
+    // 입시결과 데이터는 있으면 쓰고 없으면 조용히 넘어간다.
+    // file:// 로 열었거나 파일이 없으면 fetch가 실패하는데, 그건 오류가 아니다.
+    fetch("data/admissions.json", { cache: "no-cache" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.rows) return;
+        state.admissions = j;
+        if (!$("result-dashboard").classList.contains("hidden")) Render.peerPanel();
+      })
+      .catch(function () { /* 데이터 없이도 앱은 완전히 동작한다 */ });
+
+    $("peer-kind").addEventListener("change", function (e) { state.peerFilter.kind = e.target.value; Render.peerPanel(); });
+    let peerTimer = null;
+    $("peer-search").addEventListener("input", function (e) {
+      clearTimeout(peerTimer);
+      const v = e.target.value.trim();
+      peerTimer = setTimeout(function () { state.peerFilter.q = v; Render.peerPanel(); }, 160);
     });
 
     if (window.pdfjsLib) {
