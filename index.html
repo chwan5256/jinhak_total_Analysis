@@ -6,7 +6,7 @@
   <meta name="description" content="학생부종합전형 서류평가에서 생활기록부가 어떻게 읽힐지를 대학별 평가요소 비중에 맞춰 분해·진단하는 교사용 도구. 브라우저 안에서만 동작한다.">
   <meta name="author" content="남강고등학교 진로진학부">
   <meta name="robots" content="noindex, nofollow">
-  <title>생기부 렌즈 · Record Lens ver.2027.1</title>
+  <title>생기부 렌즈 · Record Lens ver.2027.2</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -104,7 +104,7 @@
             </h1>
             <p class="text-[10.5px] text-slate-500 leading-tight truncate">
               학생부종합전형 <strong class="text-slate-600">서류 경쟁력</strong> 진단 도구 ·
-              <span data-app-version>ver.2027.1</span>
+              <span data-app-version>ver.2027.2</span>
             </p>
           </div>
         </div>
@@ -341,6 +341,13 @@
           <button id="btn-undo" disabled class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-all flex items-center gap-1.5" title="마지막 재분류 되돌리기 (Ctrl+Z)">
             <i class="fa-solid fa-arrow-rotate-left"></i><span class="hidden md:inline">되돌리기</span>
           </button>
+          <select id="sel-autowipe" class="text-[10.5px] font-semibold bg-slate-100 border-none rounded-lg px-2 py-1.5 text-slate-600 cursor-pointer" title="조작이 없으면 자동으로 학생 자료를 지웁니다">
+            <option value="0">자동 삭제 끔</option>
+            <option value="10">10분 후</option>
+            <option value="20">20분 후</option>
+            <option value="30">30분 후</option>
+            <option value="60">60분 후</option>
+          </select>
           <button id="btn-wipe" class="px-2.5 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all flex items-center gap-1.5" title="이 학생의 자료를 화면과 메모리에서 완전히 지웁니다">
             <i class="fa-solid fa-eraser"></i><span class="hidden md:inline">학생 자료 지우기</span>
           </button>
@@ -450,6 +457,9 @@
 
             <!-- 종합 코멘트 -->
             <div id="crit-verdict" class="rounded-xl border p-4"></div>
+
+            <!-- 전형 적합도 -->
+            <div id="crit-fit"></div>
 
             <!-- 상담에서 확인할 것 -->
             <div id="crit-actions" class="grid grid-cols-1 md:grid-cols-2 gap-2.5"></div>
@@ -722,7 +732,7 @@
 
       <!-- 인쇄 꼬리말 -->
       <div class="print-only pt-3 mt-3 border-t border-slate-300 text-[8pt] text-slate-500">
-        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.1</span> — 남강고등학교 진로진학부 ·
+        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.2</span> — 남강고등학교 진로진학부 ·
         자동 분석 결과이며 서류 경쟁력의 최종 판단은 교사가 합니다.
       </div>
     </div>
@@ -829,7 +839,7 @@
       </div>
 
       <div class="print-only pt-3 mt-3 border-t border-slate-300 text-[8pt] text-slate-500">
-        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.1</span> — 남강고등학교 진로진학부 ·
+        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.2</span> — 남강고등학교 진로진학부 ·
         실제 출제 문항이며 답변은 학생 본인의 경험에서 나와야 합니다.
       </div>
     </div>
@@ -842,7 +852,7 @@
       <div>
         <p class="text-xs font-bold text-slate-800">
           생기부 렌즈 · Record Lens
-          <span class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold" data-app-version>ver.2027.1</span>
+          <span class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold" data-app-version>ver.2027.2</span>
         </p>
         <p class="text-[11px] text-slate-500 mt-1">
           만든이 <strong class="text-slate-700">남강고등학교 진로진학부</strong>
@@ -905,7 +915,7 @@
 const App = (() => {
 
 /* ---------------------------------------------------------------- CONST */
-const VERSION = "2027.1";
+const VERSION = "2027.2";
 /** 이 값 미만이면 "교사 재검토 권장"으로 표시한다. 학업/진로 경계 문장을 놓치지 않기 위한 안전망. */
 const CONF_LOW = 0.60;
 
@@ -1843,6 +1853,7 @@ const Render = {
     Render.majorDiagnostic();
     if (Render.linkage) Render.linkage();
     if (Render.criteriaPanel) Render.criteriaPanel();
+    if (Render.fitRank) Render.fitRank();
     if (Views.cur === "itv" && Render.interviewAll) Render.interviewAll();
   },
 
@@ -2522,8 +2533,10 @@ const UI = {
     UI.progress(false);
     $("upload-hub").classList.add("hidden");
     $("btn-reset-all").classList.remove("hidden");
+    state.activities = scrubActivities(state.activities);
     Nav.show(true);
     Views.go("doc");
+    AutoWipe.arm();
 
     Render.all();
     $("btn-undo").disabled = true;
@@ -2792,6 +2805,7 @@ const UI = {
     $("info-modal").addEventListener("click", function (e) { if (e.target === $("info-modal")) Info.close(); });
 
     Nav.init();
+    AutoWipe.init();
     Views.initRouting();
 
     // 대학 · 전형 선택
@@ -2910,6 +2924,425 @@ const SAMPLE_TEXT = [
   "행동특성 및 종합의견",
   "매사 지적 호기심이 뛰어나며 어려운 기계역학 문제에 직면했을 때 포기하지 않고 끈기 있게 파고드는 자기주도적 학업 태도를 지님. 타인을 배려하고 학급의 궂은일에 앞장서는 모범적인 학생임."
 ].join("\n");
+
+/* ==========================================================================
+   교과 이수 내역 재파싱 — 성적표를 근거로만 판정하기 위한 토대
+
+   톡톡스쿨 파일에는 성적표가 두 번 실린다.
+     ① 맨 앞 '교과 성적' 요약표 — 교과명·과목명 셀이 모두 rowspan 이라 엉킨다
+     ② '교과 활동 XXX' 별 소표 — 교과명이 제목에 있고 행이 적어 훨씬 정확하다
+   ②를 우선 쓰고, ②가 없을 때만 ①로 물러선다.
+
+   학년 라벨은 rowspan 블록의 '세로 중앙'에 한 번만 찍힌다.
+   이 규칙을 역산하면 블록 경계를 정확히 복원할 수 있다.
+
+     블록 [s, e) 의 중앙 = (s + e - 1) / 2 = 라벨 위치 L
+     ⇒ e = 2L - s + 1
+
+   라벨이 과목 줄에 함께 찍히면 L 은 그 행 번호(정수),
+   라벨만 따로 한 줄에 있으면 두 행 사이(반정수)다.
+   ========================================================================== */
+
+const TX = {
+  NUM: /^(-|P|[0-9]+(\.[0-9]+)?)$/,
+  AREA_HEAD: /^\s*교과\s*활동\s*([가-힣A-Za-z]+)\s*$/,
+  GRADE_ONLY: /^\s*([1-3])\s*학년\s*$/,
+  SKIP: /^\s*(구분|단위수|학년|교과명|과목명|1학기|2학기|교과\s*성적|원점수|평균|표준편차|등급|성취도)/,
+
+  num(v) { return (v === "-" || v === "P" || v === undefined || v === null) ? null : parseFloat(v); },
+
+  /** 한 줄에서 과목 행을 뽑는다. 실패하면 null. */
+  row(line) {
+    const raw = String(line || "").trim();
+    if (!raw || TX.SKIP.test(raw)) return null;
+    const toks = raw.split(/\s+/).filter(Boolean);
+    if (toks.length < 6) return null;
+
+    // 줄 앞의 학년 라벨
+    let inlineGrade = "";
+    if (/^([1-3])학년$/.test(toks[0])) inlineGrade = toks.shift().replace("학년", "");
+
+    // 오른쪽 끝에서 수치 토큰을 떼어낸다 (한 학기 5개 × 2)
+    let k = toks.length;
+    while (k > 0 && TX.NUM.test(toks[k - 1]) && (toks.length - k) < 10) k--;
+    const nums = toks.slice(k), left = toks.slice(0, k);
+    if (nums.length < 5 || !left.length) return null;
+
+    const name = left.join("");
+    if (!name || /^[0-9.]+$/.test(name)) return null;
+
+    const sem = function (o) {
+      return { units: TX.num(nums[o]), score: TX.num(nums[o + 1]), mean: TX.num(nums[o + 2]),
+               sd: TX.num(nums[o + 3]), rank: TX.num(nums[o + 4]) };
+    };
+    return {
+      name: name, inlineGrade: inlineGrade,
+      s1: sem(0),
+      s2: nums.length >= 10 ? sem(5) : { units: null, score: null, mean: null, sd: null, rank: null }
+    };
+  },
+
+  /**
+   * 한 교과 소표의 행들과 라벨 위치로 학년을 복원한다.
+   * items: [{kind:'row'|'label', ...}] 문서 순서
+   */
+  assign(items) {
+    const rows = [], labels = [];
+    items.forEach(function (it) {
+      if (it.kind === "row") {
+        rows.push(it);
+        if (it.inlineGrade) labels.push({ g: it.inlineGrade, at: rows.length - 1 });
+      } else {
+        // 라벨만 있는 줄 → 직전 행과 다음 행 사이(반정수)
+        labels.push({ g: it.g, at: rows.length - 0.5 });
+      }
+    });
+    if (!rows.length) return [];
+
+    // 같은 학년 라벨이 여러 번 찍혔으면 첫 것만 쓴다
+    const seen = {}, L = [];
+    labels.forEach(function (x) { if (!seen[x.g]) { seen[x.g] = 1; L.push(x); } });
+    L.sort(function (a, b) { return a.at - b.at; });
+
+    if (!L.length) { rows.forEach(function (r) { r.grade = ""; }); return rows; }
+
+    /* ── ① 3학년은 1학기까지만 기록된다 ──────────────────────────
+       생기부는 3학년 1학기에 마감한다. 그래서 2학기 칸이 통째로 빈 채
+       표 끝에 몰려 있는 과목들은 3학년이다. 라벨 위치보다 이 신호가 세다.
+       (라벨이 블록 중앙이 아니라 첫 줄에 찍히는 경우가 실제로 있다)      */
+    const empty2 = function (r) {
+      return r.s2.units === null && r.s2.score === null && r.s2.rank === null;
+    };
+    const has1 = function (r) {
+      return r.s1.units !== null || r.s1.score !== null || r.s1.rank !== null;
+    };
+    let tail = rows.length;
+    while (tail > 0 && empty2(rows[tail - 1]) && has1(rows[tail - 1])) tail--;
+
+    const l3 = L.filter(function (x) { return x.g === "3"; })[0];
+    let end = rows.length;
+    if (l3 && tail < rows.length && l3.at >= tail - 0.5) {
+      for (let j = tail; j < rows.length; j++) rows[j].grade = "3";
+      end = tail;                                     // 남은 앞부분만 아래에서 나눈다
+    }
+
+    /* ── ② 남은 구간은 블록 중앙 규칙으로 나눈다 ─────────────────
+       라벨은 rowspan 블록의 세로 중앙에 찍힌다.
+         블록 [s, e) 의 중앙 = (s + e - 1) / 2 = L  ⇒  e = 2L - s + 1     */
+    const L2 = L.filter(function (x) { return x.at < end; });
+    if (!L2.length) {
+      for (let j = 0; j < end; j++) rows[j].grade = rows[j].grade || (L[0] && L[0].g) || "";
+      return rows;
+    }
+    let s = 0;
+    for (let i = 0; i < L2.length; i++) {
+      let e = Math.round(2 * L2[i].at - s + 1);
+      if (i === L2.length - 1) e = end;               // 마지막 블록은 끝까지
+      e = Math.max(s + 1, Math.min(end, e));
+      for (let j = s; j < e; j++) rows[j].grade = L2[i].g;
+      s = e;
+      if (s >= end) break;
+    }
+    for (let j = s; j < end; j++) rows[j].grade = L2[L2.length - 1].g;
+    return rows;
+  },
+
+  /** '교과 활동 XXX' 소표들에서 이수 과목을 뽑는다. */
+  fromSubjectTables(text) {
+    const lines = String(text || "").split(/\r?\n/);
+    const out = [];
+    let i = 0;
+    while (i < lines.length) {
+      const m = lines[i].match(TX.AREA_HEAD);
+      if (!m) { i++; continue; }
+      const area = m[1];
+      const items = [];
+      let j = i + 1, blank = 0;
+      for (; j < lines.length; j++) {
+        if (TX.AREA_HEAD.test(lines[j])) break;
+        const t = lines[j].trim();
+        if (!t) { blank++; if (blank > 2 && items.length) break; continue; }
+        const g = t.match(TX.GRADE_ONLY);
+        if (g) { items.push({ kind: "label", g: g[1] }); blank = 0; continue; }
+        const r = TX.row(lines[j]);
+        if (r) { items.push(Object.assign({ kind: "row" }, r)); blank = 0; continue; }
+        // 세특 본문이 시작되면 표는 끝난 것으로 본다
+        if (items.length && t.length > 40 && !/[0-9]{2}\s+[0-9]/.test(t)) break;
+      }
+      TX.assign(items).forEach(function (r) {
+        out.push({ grade: r.grade || "", area: area, name: r.name, s1: r.s1, s2: r.s2, src: "교과활동표" });
+      });
+      i = j;
+    }
+    return out;
+  },
+
+  /** 중복 제거 — 같은 학년·같은 과목은 한 번만. 수치가 있는 쪽을 남긴다. */
+  dedupe(list) {
+    const key = function (c) { return (c.grade || "?") + "|" + normCourse(c.name); };
+    const map = {};
+    list.forEach(function (c) {
+      const k = key(c);
+      const score = (c.s1.score !== null ? 2 : 0) + (c.s1.rank !== null ? 1 : 0) +
+                    (c.s2.score !== null ? 2 : 0) + (c.s2.rank !== null ? 1 : 0);
+      if (!map[k] || score > map[k]._s) { c._s = score; map[k] = c; }
+    });
+    const out = Object.keys(map).map(function (k) { return map[k]; });
+    out.sort(function (a, b) { return (a.grade || "9").localeCompare(b.grade || "9"); });
+    out.forEach(function (c) { delete c._s; });
+    return out;
+  }
+};
+
+/* 기존 파서를 교체한다. 소표가 있으면 소표를, 없으면 예전 방식을 쓴다. */
+Transcript._parseCoursesLegacy = Transcript.parseCourses;
+Transcript.parseCourses = function (text) {
+  const byTable = TX.dedupe(TX.fromSubjectTables(text));
+  if (byTable.length >= 5) return byTable;
+  const legacy = Transcript._parseCoursesLegacy.call(Transcript, text) || [];
+  return byTable.length > legacy.length ? byTable : legacy;
+};
+
+/* ==========================================================================
+   추출 잡음 제거
+
+   PDF 표에서 나오는 괄호·괘선 기호와, 표 머리글이 활동으로 잡히는 것,
+   어절 중간에서 잘린 조각 문장을 걸러낸다.
+   ========================================================================== */
+const NOISE_CH = /[『』「」【】〔〕〈〉《》▣▶►◆◇■□●○◎※│┃─━┌┐└┘├┤┬┴┼]/g;
+const FRAG = /^[가-힣]{1,6}(을|를|이|가|은|는|의|에|과|와|도|로)?\s*(보임|함|음|됨)?\.?$/;
+
+/** 문장 하나를 정리한다. 버려야 하면 null. */
+function cleanSentence(t) {
+  let s = String(t || "").replace(NOISE_CH, " ").replace(/\s{2,}/g, " ").trim();
+  if (!s) return null;
+  if (s.length < 12) return null;               // 조각
+  if (FRAG.test(s)) return null;                // '더십을 보임.' 같은 잘린 조각
+  if (!/[가-힣]/.test(s)) return null;           // 숫자·기호만
+  if (/^[0-9\s.\-/]+$/.test(s)) return null;
+  return s;
+}
+
+/** 표 머리글이 활동으로 잡힌 것 — '국어 교과 활동' 등 */
+function isPseudoActivity(a) {
+  const t = String(a.title || "").trim();
+  if (/교과\s*활동$/.test(t)) return true;
+  if (/^(구분|합계|계|비고)$/.test(t)) return true;
+  return false;
+}
+
+/** UI.process 직후 활동 목록을 청소한다. */
+function scrubActivities(list) {
+  const out = [];
+  (list || []).forEach(function (a) {
+    if (isPseudoActivity(a)) return;
+    const keep = [];
+    (a.sentences || []).forEach(function (s) {
+      const c = cleanSentence(s.text);
+      if (c === null) return;
+      s.text = c;
+      keep.push(s);
+    });
+    if (!keep.length) return;
+    a.sentences = keep;
+    a.rawContent = String(a.rawContent || "").replace(NOISE_CH, " ").replace(/\s{2,}/g, " ").trim();
+    out.push(a);
+  });
+  return out;
+}
+
+
+/* ==========================================================================
+   정성 진단 — '얼마나 많이 썼나'가 아니라 '어떻게 썼나'
+
+   입학사정관은 문장 수를 세지 않는다. 가이드북이 적어 둔 준거는 전부
+   "~한가?" 형태의 질문이다. 여기서는 그 질문들을 기계가 확인할 수 있는
+   신호로 바꾼다.
+
+   가장 중요한 신호는 '탐구의 완결성'이다.
+     계기 → 방법 → 결과 → 한계 → 확장
+   다섯 단계 중 몇 개가 한 활동 안에 들어 있는가. 활동 나열과 심층 탐구는
+   개수가 아니라 이것으로 갈린다.
+   ========================================================================== */
+
+const STAGE = {
+  motive:  { label: "계기·의문", re: /(궁금|의문|호기심|왜\s|의아|계기로|접하고|알게\s*되어|문제의식|필요성을\s*느|관심을\s*(가지|갖)|흥미를\s*느|착안|주목하여|문제임을\s*인지|라는\s*점에서|~?에\s*의문)/ },
+  method:  { label: "방법·설계", re: /(설계|변인|통제|조작|측정|실험\s*방법|모델링|시뮬레이|알고리즘|절차를|자료를\s*(수집|찾아)|문헌|선행\s*연구|조사하여|프로그램을\s*작성|코드|장치를\s*제작|실험을\s*(하|수행|진행)|수식으로|유도하여|공식을\s*(적용|활용)|그래프로|표로\s*정리|계산하여|도식으로)/ },
+  result:  { label: "결과·산출", re: /(도출|산출|확인함|검증|수치|결과를|증명|규명|보임\.|나타남|비교\s*분석|정리하여\s*발표|결론|밝혀|입증|산정)/ },
+  limit:   { label: "한계·오차", re: /(오차|한계|제약|불확실|편차가|정확도|재현|실패|예상과\s*달리|유보|반례|가정의|보완이\s*필요)/ },
+  extend:  { label: "확장·후속", re: /(후속|이어서|확장하여|더\s*나아가|심화하여|추가로\s*(탐구|찾아|조사)|다음\s*단계|연계하여|재설계|개선하여|진로와\s*(연결|연계)|전공과\s*(연결|연계)|이를\s*바탕으로\s*(추가|다시|더))/ }
+};
+const STAGE_KEYS = Object.keys(STAGE);
+
+/* 자기주도 — '했다'가 아니라 '내가 정했다' */
+const SELF_RE = /(스스로|자발적으로|직접\s|주도적으로|먼저\s*제안|본인이\s*설계|자기주도|독자적으로|찾아보고|찾아\s*읽|선정하여|기획하여)/;
+/* 구체성 — 수치·단위·도구·이론명 */
+const CONCRETE_RE = /([0-9]+(\.[0-9]+)?\s*(%|℃|도|m|km|kg|g|nm|eV|V|A|W|kW|배|회|명|건|년|개월|일))|(법칙|정리|방정식|모형|공식|이론|계수|상수|지수)/;
+/* 상투어 — 근거 없이 태도만 적은 서술 */
+const CLICHE_RE = /^(?=.{0,80}$).*(성실히|열심히|적극적으로|꾸준히|최선을\s*다)(?!.*(설계|측정|도출|분석|검증|제작|비교)).*$/;
+/* 공동체 구체성 — 대상과 행위가 있는가 */
+const CO_CONCRETE_RE = /(친구|급우|후배|부원|모둠원|팀원|학급|반\s|동아리)/;
+const CO_ROLE_RE = /(부장|반장|회장|팀장|조장|부원장|주도하여|이끌어|맡아)/;
+
+const Quality = {
+  /** 문장 묶음의 탐구 완결성 */
+  stagesOf(sents) {
+    const t = (sents || []).map(function (s) { return s.text; }).join(" ");
+    const hit = {};
+    STAGE_KEYS.forEach(function (k) { if (STAGE[k].re.test(t)) hit[k] = true; });
+    return { keys: Object.keys(hit), n: Object.keys(hit).length };
+  },
+
+  /**
+   * 역량별 정성 지표.
+   *
+   * 활동 하나를 통째로 한 역량에 몰아주면 공동체역량이 사라진다 —
+   * 공동체 서술은 세특·자율 안에 흩어져 있지 학급회 활동으로 따로 서지 않는다.
+   * 그래서 '그 역량의 문장이 2개 이상 들어 있는 활동'을 그 역량의 활동으로 세고,
+   * 완결성도 그 역량의 문장만 모아서 본다.
+   *
+   * 잣대도 역량마다 다르다.
+   *   학업·진로 : 탐구가 계기→방법→결과→한계→확장으로 닫히는가
+   *   공동체   : 대상과 행위가 구체적인가, 역할이 있었는가, 3년간 이어지는가
+   */
+  byCat() {
+    const out = {};
+    CATS.forEach(function (c) {
+      out[c] = { n: 0, self: 0, concrete: 0, cliche: 0, role: 0, acts: [],
+                 deep: 0, mid: 0, thin: 0, stageCount: {},
+                 grades: {}, best: [] };
+      STAGE_KEYS.forEach(function (k) { out[c].stageCount[k] = 0; });
+    });
+
+    state.activities.forEach(function (a) {
+      const byCat = { ac: [], ca: [], co: [] };
+      (a.sentences || []).forEach(function (s) { byCat[s.cat].push(s); });
+
+      CATS.forEach(function (c) {
+        const ss = byCat[c];
+        if (!ss.length) return;
+        const o = out[c];
+
+        ss.forEach(function (s) {
+          o.n++;
+          if (SELF_RE.test(s.text)) o.self++;
+          if (CLICHE_RE.test(s.text)) o.cliche++;
+          if (c === "co") {
+            if (CO_CONCRETE_RE.test(s.text)) o.concrete++;
+            if (CO_ROLE_RE.test(s.text)) o.role++;
+          } else if (CONCRETE_RE.test(s.text)) o.concrete++;
+        });
+
+        // 문장 2개 이상이면 이 역량의 '활동'으로 센다
+        if (ss.length >= 2) {
+          const st = Quality.stagesOf(ss);
+          o.acts.push({ a: a, st: st, sents: ss });
+          st.keys.forEach(function (k) { o.stageCount[k]++; });
+          if (a.grade) o.grades[a.grade] = true;
+          if (c === "co") {
+            // 공동체는 탐구 단계가 아니라 구체성·역할로 깊이를 본다
+            const t = ss.map(function (s) { return s.text; }).join(" ");
+            const d = (CO_CONCRETE_RE.test(t) ? 1 : 0) + (CO_ROLE_RE.test(t) ? 1 : 0) +
+                      (/(갈등|조율|설득|중재|이끌|바꾸|개선|건의|제안)/.test(t) ? 1 : 0) +
+                      (/(꾸준히|매주|한\s*학기|일\s*년|지속적으로|계속)/.test(t) ? 1 : 0);
+            if (d >= 3) o.deep++; else if (d >= 2) o.mid++; else o.thin++;
+          } else {
+            if (st.n >= 4) o.deep++; else if (st.n >= 2) o.mid++; else o.thin++;
+          }
+        }
+      });
+    });
+
+    CATS.forEach(function (c) {
+      const o = out[c];
+      o.acts.sort(function (x, y) { return y.st.n - x.st.n; });
+      o.best = o.acts.slice(0, 3);
+      const na = o.acts.length || 1;
+      const ns = o.n || 1;
+      const rDeep = o.deep / na;
+      const rSelf = Math.min(1, o.self / ns * 4);
+      const rConc = Math.min(1, o.concrete / ns * 3);
+      const pCliche = Math.min(0.3, o.cliche / ns);
+      const spread = Object.keys(o.grades).length / 3;   // 3년에 걸쳐 있는가
+
+      if (c === "co") {
+        const rRole = Math.min(1, o.role / ns * 5);
+        o.score = Math.max(0, Math.round(
+          rDeep * 30 + rConc * 26 + rRole * 16 + spread * 16 + rSelf * 12 - pCliche * 45));
+      } else {
+        const rStage = o.acts.reduce(function (s, x) { return s + x.st.n; }, 0) / (na * 5);
+        o.score = Math.max(0, Math.round(
+          rDeep * 30 + rStage * 28 + rSelf * 16 + rConc * 16 + spread * 10 - pCliche * 45));
+      }
+      o.rDeep = rDeep; o.rSelf = rSelf; o.rConc = rConc; o.pCliche = pCliche;
+
+      // 위계성 — 학년이 오를수록 깊어지는가
+      const per = ["1", "2", "3"].map(function (k) {
+        const sub = o.acts.filter(function (x) { return x.a.grade === k; });
+        return sub.length ? sub.reduce(function (s, x) { return s + x.st.n; }, 0) / sub.length : null;
+      });
+      o.trend = per;
+      const known = per.filter(function (v) { return v !== null; });
+      o.rising = known.length >= 2 && known[known.length - 1] > known[0] + 0.3;
+      o.falling = known.length >= 2 && known[known.length - 1] < known[0] - 0.3;
+    });
+    return out;
+  },
+
+  /** 학업역량에는 성적이 실제로 들어간다 */
+  academicFromScore() {
+    const z = state.transcript && state.transcript.zsum;
+    const cs = (state.transcript && state.transcript.courses) || [];
+    if (!cs.length) return null;
+    const byG = { "1": [], "2": [], "3": [] };
+    cs.forEach(function (c) {
+      const r = [c.s1.rank, c.s2.rank].filter(function (v) { return v !== null; });
+      if (r.length && byG[c.grade]) byG[c.grade].push(r.reduce(function (a, b) { return a + b; }, 0) / r.length);
+    });
+    const avg = function (a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : null; };
+    const g1 = avg(byG["1"]), g2 = avg(byG["2"]), g3 = avg(byG["3"]);
+    let trend = "판단 보류";
+    const first = g1 !== null ? g1 : g2, last = g3 !== null ? g3 : g2;
+    if (first !== null && last !== null) {
+      if (last < first - 0.3) trend = "상승";
+      else if (last > first + 0.3) trend = "하락";
+      else trend = "유지";
+    }
+    return { zAll: z ? z.zAll : null, zSci: z ? z.zSciMath : null, g1: g1, g2: g2, g3: g3, trend: trend };
+  },
+
+  /** 전공 관련 교과 이수 — 위계까지 본다 */
+  majorCourses() {
+    const sel = $("select-target-major");
+    const std = MAJORS[sel && sel.value];
+    const cs = (state.transcript && state.transcript.courses) || [];
+    if (!std || !cs.length) return null;
+    const taken = function (want) {
+      for (let i = 0; i < cs.length; i++) if (courseMatches(want, cs[i].name)) return cs[i];
+      return null;
+    };
+    const req = std.requiredCourses.map(function (c) { return { name: c, hit: taken(c) }; });
+    const rec = (std.recommendedCourses || []).map(function (c) { return { name: c, hit: taken(c) }; });
+    // 위계 — Ⅰ 이수 후 Ⅱ까지 갔는가
+    let ladder = 0, ladderTot = 0;
+    req.concat(rec).forEach(function (x) {
+      if (/Ⅱ|2$/.test(normCourse(x.name)) || /Ⅱ/.test(x.name)) { ladderTot++; if (x.hit) ladder++; }
+    });
+    // 전공 관련 과목의 성취 (등급 평균)
+    const rel = req.concat(rec).filter(function (x) { return x.hit; })
+      .map(function (x) {
+        const r = [x.hit.s1.rank, x.hit.s2.rank].filter(function (v) { return v !== null; });
+        return r.length ? r.reduce(function (a, b) { return a + b; }, 0) / r.length : null;
+      }).filter(function (v) { return v !== null; });
+    return {
+      req: req, rec: rec,
+      reqDone: req.filter(function (x) { return x.hit; }).length,
+      ladder: ladder, ladderTot: ladderTot,
+      relRank: rel.length ? Math.round(rel.reduce(function (a, b) { return a + b; }, 0) / rel.length * 100) / 100 : null
+    };
+  }
+};
+
 
 /* ================================================================ 내보내기 확장 */
 
@@ -3278,6 +3711,71 @@ const Wipe = {
   }
 };
 
+/* ==========================================================================
+   자리를 비웠을 때 알아서 지우기 (Q1)
+
+   상담이 끝나고 지우기 버튼을 누르는 걸 잊기 쉽다.
+   일정 시간 아무 조작이 없으면 먼저 물어보고, 답이 없으면 지운다.
+   기본은 꺼져 있고, 켜면 그 브라우저에만 기억한다(학생 자료가 아니라 설정값).
+   ========================================================================== */
+const AutoWipe = {
+  KEY: "rl.autowipe.min",
+  timer: null, warnAt: null,
+  minutes() {
+    try { return parseInt(localStorage.getItem(AutoWipe.KEY) || "0", 10) || 0; }
+    catch (e) { return 0; }
+  },
+  set(m) {
+    try { localStorage.setItem(AutoWipe.KEY, String(m)); } catch (e) {}
+    AutoWipe.arm();
+    const sel = $("sel-autowipe"); if (sel) sel.value = String(m);
+    toast(m ? m + "분 동안 조작이 없으면 자동으로 지웁니다." : "자동 지우기를 껐습니다.");
+  },
+  arm() {
+    clearTimeout(AutoWipe.timer);
+    const m = AutoWipe.minutes();
+    if (!m || !state.activities.length) return;
+    AutoWipe.timer = setTimeout(AutoWipe.fire, m * 60 * 1000);
+  },
+  fire() {
+    if (!state.activities.length) return;
+    let left = 30;
+    UI.dialog({
+      title: "자리를 비우셨나요?",
+      message: '조작이 없어 <strong>' + AutoWipe.minutes() + '분</strong>이 지났습니다. ' +
+               '<strong id="aw-count">30</strong>초 뒤 학생 자료를 자동으로 지웁니다.<br><br>' +
+               '계속 보시려면 <strong>계속 보기</strong>를 누르세요.',
+      type: "warning",
+      dangerLabel: "지금 지우기",
+      onDanger: function () { clearInterval(AutoWipe.tick); UI.closeDialog(); Wipe.run(); }
+    });
+    $("dialog-btn-confirm").textContent = "계속 보기";
+    clearInterval(AutoWipe.tick);
+    AutoWipe.tick = setInterval(function () {
+      left--;
+      const el = $("aw-count"); if (el) el.textContent = left;
+      if (left <= 0) { clearInterval(AutoWipe.tick); UI.closeDialog(); Wipe.run(); }
+      if ($("custom-dialog").classList.contains("hidden")) { clearInterval(AutoWipe.tick); AutoWipe.arm(); }
+    }, 1000);
+  },
+  init() {
+    const sel = $("sel-autowipe");
+    if (sel) {
+      sel.value = String(AutoWipe.minutes());
+      sel.addEventListener("change", function (e) { AutoWipe.set(parseInt(e.target.value, 10) || 0); });
+    }
+    ["click", "keydown", "scroll", "mousemove"].forEach(function (ev) {
+      let t = null;
+      document.addEventListener(ev, function () {
+        clearTimeout(t);
+        t = setTimeout(function () {
+          if ($("custom-dialog").classList.contains("hidden")) AutoWipe.arm();
+        }, 500);
+      }, { passive: true });
+    });
+  }
+};
+
 
 /* ==========================================================================
    서류 경쟁력 진단 — 이 도구의 핵심
@@ -3296,48 +3794,48 @@ const DEPTH_MARK = /(설계|검증|도출|측정|분석|모델링|시뮬레이|�
 const REFLECT_MARK = /(깨닫|알게\s*되|배우게|한계를|아쉬웠|보완하고자|이어\s*지|확장하여|후속|더\s*나아가|계기가)/;
 
 const Criteria = {
-  /* ---------- 학생 쪽 '공급' 계산 ---------- */
+  /* ---------- 학생 쪽 '공급' 계산 ----------
+     share  : 문장 비중 (양)  — 참고용
+     qual   : 정성 점수 (질)  — 판정의 주된 근거
+     문장을 몇 개 썼는지가 아니라 어떻게 썼는지로 본다.               */
   supply() {
     const st = state.stats;
+    const q = Quality.byCat();
     const out = {};
-    CATS.forEach(function (c) { out[c] = { n: 0, strong: 0, depth: 0, reflect: 0, pairs: {}, top: [] }; });
-
-    state.activities.forEach(function (a) {
-      a.sentences.forEach(function (s) {
-        const o = out[s.cat];
-        o.n++;
-        if (s.conf >= 0.75) o.strong++;
-        if (DEPTH_MARK.test(s.text)) o.depth++;
-        if (REFLECT_MARK.test(s.text)) o.reflect++;
-        o.pairs[a.grade + "/" + a.section] = true;
-        o.top.push({ s: s, a: a });
-      });
-    });
-
-    const total = st.total || 1;
     CATS.forEach(function (c) {
-      const o = out[c];
-      o.share = o.n / total * 100;
-      o.spread = Object.keys(o.pairs).length;
-      // 근거의 질 0~100 : 강한 분류 40 + 심화 서술 35 + 성찰 10 + 확산 15
-      const rStrong = o.n ? o.strong / o.n : 0;
-      const rDepth = o.n ? o.depth / o.n : 0;
-      const rRef = o.n ? o.reflect / o.n : 0;
-      const rSpread = Math.min(1, o.spread / 8);
-      o.qual = Math.round(rStrong * 40 + rDepth * 35 + rRef * 10 + rSpread * 15);
-      o.top.sort(function (x, y) {
-        const dx = (DEPTH_MARK.test(x.s.text) ? 1 : 0), dy = (DEPTH_MARK.test(y.s.text) ? 1 : 0);
-        if (dx !== dy) return dy - dx;
-        return y.s.conf - x.s.conf;
+      const o = q[c];
+      const total = st.total || 1;
+      out[c] = {
+        n: o.n, share: o.n / total * 100,
+        qual: o.score, deep: o.deep, mid: o.mid, thin: o.thin,
+        acts: o.acts.length, best: o.best, stageCount: o.stageCount,
+        self: o.self, concrete: o.concrete, cliche: o.cliche,
+        rising: o.rising, falling: o.falling, trend: o.trend,
+        top: []
+      };
+      // 대표 근거 문장 — 탐구 단계가 많은 활동에서 뽑는다
+      o.best.forEach(function (x) {
+        (x.a.sentences || []).forEach(function (sn) {
+          if (sn.cat === c && out[c].top.length < 3) out[c].top.push({ a: x.a, s: sn });
+        });
       });
+      if (!out[c].top.length) {
+        state.activities.forEach(function (a) {
+          (a.sentences || []).forEach(function (sn) {
+            if (sn.cat === c && out[c].top.length < 3) out[c].top.push({ a: a, s: sn });
+          });
+        });
+      }
     });
 
-    // 학업역량에는 성적이 실제로 들어간다. 교내 위치를 질 지표에 반영한다.
-    const z = state.transcript && state.transcript.zsum;
-    if (z && typeof z.all === "number") {
-      const bonus = Math.max(-12, Math.min(12, Math.round(z.all * 10)));
-      out.ac.qual = Math.max(0, Math.min(100, out.ac.qual + bonus));
-      out.ac.zNote = (z.all >= 0 ? "+" : "") + z.all.toFixed(2);
+    // 학업역량에는 성적이 실제로 들어간다
+    const sc = Quality.academicFromScore();
+    if (sc && sc.zAll !== null) {
+      const bonus = Math.max(-12, Math.min(12, Math.round(sc.zAll * 10)));
+      const tb = sc.trend === "상승" ? 6 : (sc.trend === "하락" ? -6 : 0);
+      out.ac.qual = Math.max(0, Math.min(100, out.ac.qual + bonus + tb));
+      out.ac.zNote = (sc.zAll >= 0 ? "+" : "") + sc.zAll.toFixed(2);
+      out.ac.score = sc;
     }
     return out;
   },
@@ -3368,27 +3866,38 @@ const Criteria = {
       const s = sup[e.map];
       const supply = s ? s.share : 0;
       const gap = (e.w === null) ? null : supply - e.w;
+      // 판정은 질(qual)이 주도한다. 양(gap)은 보조 신호일 뿐이다.
+      // 비중이 큰 요소일수록 요구 수준을 높인다 — 50%를 보는 요소에
+      // 질 40점짜리 근거를 내미는 것과, 10%짜리에 40점인 것은 다르다.
       let verdict = "확인 필요";
-      if (gap !== null) {
-        if (gap >= 10) verdict = "강점";
-        else if (gap <= -10) verdict = "보완 필요";
-        else verdict = "균형";
+      const qq = s ? s.qual : 0;
+      if (e.w !== null) {
+        const need = 35 + (e.w - 20) * 0.5;          // 비중이 클수록 기준선이 올라간다
+        if (qq >= need + 12) verdict = "강점";
+        else if (qq >= need - 8) verdict = "보통";
+        else verdict = "보완 필요";
+        if (supply < 4 && e.w >= 20) verdict = "근거 없음";
       }
       return { name: e.name, map: e.map, w: e.w, supply: supply, gap: gap,
-               qual: s ? s.qual : 0, n: s ? s.n : 0, depth: s ? s.depth : 0,
-               spread: s ? s.spread : 0, zNote: s ? s.zNote : null, verdict: verdict };
+               qual: s ? s.qual : 0, n: s ? s.n : 0,
+               deep: s ? s.deep : 0, mid: s ? s.mid : 0, thin: s ? s.thin : 0,
+               acts: s ? s.acts : 0, self: s ? s.self : 0, cliche: s ? s.cliche : 0,
+               rising: s ? s.rising : false, falling: s ? s.falling : false,
+               stageCount: s ? s.stageCount : {}, top: s ? s.top : [],
+               zNote: s ? s.zNote : null, score: s ? s.score : null, verdict: verdict };
     });
 
-    // 비중으로 가중한 근거 두께 지수 (합격 확률이 아니다)
-    let wsum = 0, acc = 0;
+    // 이 전형의 비중으로 가중한 '정성 지수'. 양은 넣지 않는다 —
+    // 양을 섞으면 질 신호를 상쇄해 어느 전형이나 비슷한 값이 나온다.
+    // 다만 비중이 큰 요소가 거의 비어 있으면 그것만 따로 감점한다.
+    let wsum = 0, acc = 0, pen = 0;
     elems.forEach(function (r) {
       if (r.w === null) return;
       wsum += r.w;
-      // 비중 대비 공급 충족도(최대 1.3까지만 인정) × 근거의 질
-      const fill = Math.min(1.3, r.w > 0 ? r.supply / r.w : 1);
-      acc += r.w * (fill * 0.5 + (r.qual / 100) * 0.5);
+      acc += r.w * r.qual;
+      if (r.w >= 25 && r.supply < 3) pen += 6;      // 큰 비중인데 근거 자체가 없음
     });
-    const index = wsum ? Math.round(acc / wsum * 100) : null;
+    const index = wsum ? Math.max(0, Math.round(acc / wsum) - pen) : null;
 
     return {
       row: row, rows: elems, proxy: proxy, want: want,
@@ -3490,16 +3999,25 @@ Render.criteriaPanel = function () {
   const COLOR = { ac: "#2563eb", ca: "#059669", co: "#d97706" };
   const VBADGE = {
     "강점": "bg-emerald-100 text-emerald-800",
-    "균형": "bg-slate-200 text-slate-700",
-    "보완 필요": "bg-rose-100 text-rose-800",
+    "보통": "bg-slate-200 text-slate-700",
+    "보완 필요": "bg-amber-100 text-amber-900",
+    "근거 없음": "bg-rose-100 text-rose-800",
     "확인 필요": "bg-slate-100 text-slate-500"
   };
 
   body.innerHTML = cr.rows.map(function (e) {
     const w = e.w === null ? 0 : e.w;
-    const sc = Math.min(100, e.supply);
+    const need = e.w === null ? 50 : 35 + (e.w - 20) * 0.5;
+    const SK = e.stageCount || {};
+    const stages = STAGE_KEYS.map(function (k) {
+      const on = (SK[k] || 0) > 0;
+      return '<span class="px-1 py-0.5 rounded text-[9px] font-bold ' +
+        (on ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-300') + '" title="' +
+        STAGE[k].label + ' — ' + (SK[k] || 0) + '개 활동">' + STAGE[k].label.split("·")[0] + '</span>';
+    }).join("");
+
     return '<div class="rounded-xl border border-slate-200 p-3">' +
-      '<div class="flex items-center justify-between gap-2 mb-1.5">' +
+      '<div class="flex items-center justify-between gap-2 mb-2">' +
         '<div class="flex items-center gap-1.5 min-w-0">' +
           '<span class="w-2 h-2 rounded-full flex-shrink-0" style="background:' + COLOR[e.map] + '"></span>' +
           '<span class="text-[12px] font-bold text-slate-900 truncate">' + esc(e.name) + '</span>' +
@@ -3508,27 +4026,50 @@ Render.criteriaPanel = function () {
         '</div>' +
         '<span class="px-2 py-0.5 rounded text-[10px] font-black flex-shrink-0 ' + VBADGE[e.verdict] + '">' + e.verdict + '</span>' +
       '</div>' +
-      '<div class="duo mb-1.5">' +
-        '<div class="demand" style="width:' + w + '%"></div>' +
-        '<div class="supply" style="width:' + sc + '%;background:' + COLOR[e.map] + '"></div>' +
-        (e.w === null ? '' : '<div class="tick" style="left:' + w + '%"></div>') +
+
+      // 질 막대 — 요구 기준선(눈금)과 이 학생의 정성 점수
+      '<div class="duo mb-1">' +
+        '<div class="demand" style="width:' + Math.min(100, need) + '%"></div>' +
+        '<div class="supply" style="width:' + Math.min(100, e.qual) + '%;background:' + COLOR[e.map] + '"></div>' +
+        '<div class="tick" style="left:' + Math.min(100, need) + '%"></div>' +
       '</div>' +
+      '<div class="flex items-center justify-between text-[9.5px] text-slate-500 mb-1.5">' +
+        '<span>정성 점수 <strong class="text-slate-800 tnum">' + e.qual + '</strong>' +
+          ' · 이 비중이면 <strong class="text-indigo-700 tnum">' + Math.round(need) + '</strong> 이상은 필요</span>' +
+        '<span class="tnum">문장 ' + e.n + '개 (' + e.supply.toFixed(0) + '%)</span>' +
+      '</div>' +
+
+      // 탐구 완결성
+      '<div class="flex items-center gap-1 flex-wrap mb-1">' +
+        '<span class="text-[9px] text-slate-400 mr-0.5">탐구 단계</span>' + stages +
+        '<span class="text-[9.5px] text-slate-500 ml-1">심층 <strong class="text-slate-800">' + e.deep +
+        '</strong> / 중간 ' + e.mid + ' / 얕음 ' + e.thin + ' (활동 ' + e.acts + '건)</span>' +
+      '</div>' +
+
       '<div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500">' +
-        '<span>학생 근거 <strong class="text-slate-800 tnum">' + e.supply.toFixed(0) + '%</strong> (' + e.n + '문장)</span>' +
-        '<span>심화 서술 <strong class="text-slate-800 tnum">' + e.depth + '</strong>건</span>' +
-        '<span>영역 확산 <strong class="text-slate-800 tnum">' + e.spread + '</strong>곳</span>' +
-        '<span title="분류 신뢰도·심화 서술 비율·성찰 표현·영역 확산을 합산한 0~100 지표입니다. 문장 수가 아니라 밀도를 봅니다.">' +
-          '근거 밀도 <strong class="text-slate-800 tnum">' + e.qual + '</strong>/100' +
-          (e.zNote ? ' <span class="text-indigo-600">(교내 z ' + e.zNote + ' 반영)</span>' : '') + '</span>' +
-        (e.gap === null ? '' :
-          '<span class="' + (e.gap >= 0 ? 'text-emerald-700' : 'text-rose-700') + ' font-semibold">' +
-          (e.gap > 0 ? '+' : '') + e.gap.toFixed(0) + '%p</span>') +
+        '<span>자기주도 표현 <strong class="text-slate-800 tnum">' + e.self + '</strong></span>' +
+        '<span class="' + (e.cliche > e.n * 0.15 ? 'text-rose-600 font-semibold' : '') + '">' +
+          '상투어 <strong class="tnum">' + e.cliche + '</strong></span>' +
+        (e.rising ? '<span class="text-emerald-700 font-semibold">학년 오를수록 깊어짐 ↗</span>' : '') +
+        (e.falling ? '<span class="text-rose-700 font-semibold">학년 오를수록 얕아짐 ↘</span>' : '') +
+        (e.zNote ? '<span class="text-indigo-600">교내 z ' + e.zNote +
+          (e.score ? ' · 성적 추이 ' + e.score.trend : '') + '</span>' : '') +
       '</div>' +
+
+      (e.top && e.top.length
+        ? '<details class="mt-1.5"><summary class="text-[9.5px] text-slate-400 cursor-pointer hover:text-slate-600">' +
+          '이 판정의 근거 문장 보기</summary>' +
+          e.top.map(function (t) {
+            return '<p class="text-[10px] text-slate-600 leading-snug mt-1">' +
+              '<span class="font-semibold text-slate-800">[' + esc(t.a.grade) + '학년 ' + esc(t.a.title) + ']</span> ' +
+              esc(t.s.text.slice(0, 110)) + (t.s.text.length > 110 ? "…" : "") + '</p>';
+          }).join("") + '</details>'
+        : '') +
     '</div>';
   }).join("");
 
   /* ── 종합 ── */
-  const weak = cr.rows.filter(function (e) { return e.verdict === "보완 필요"; })
+  const weak = cr.rows.filter(function (e) { return e.verdict === "보완 필요" || e.verdict === "근거 없음"; })
                       .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
   const strongEl = cr.rows.filter(function (e) { return e.verdict === "강점"; })
                       .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
@@ -3556,7 +4097,7 @@ Render.criteriaPanel = function () {
               '<strong>비중이 큰 곳이 얇다</strong>는 것이 이 전형에서 가장 중요한 신호입니다. '
             : '비중 대비 크게 비어 있는 요소는 없습니다. ') +
           (cr.index !== null
-            ? '비중 가중 근거 두께 지수는 <strong class="tnum">' + cr.index + '/100</strong>입니다.'
+            ? '이 전형의 비중으로 가중한 <strong>정성 지수</strong>는 <strong class="tnum">' + cr.index + '/100</strong>입니다.'
             : '일부 요소의 비중이 확인되지 않아 지수를 내지 않았습니다.') +
         '</p>' +
         '<p class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">' +
@@ -3626,6 +4167,8 @@ Render.criteriaPanel = function () {
       '<p class="text-[10.5px] text-slate-600 leading-relaxed">' + c.c + '</p></div>';
   }).join("");
 
+  if (Render.fitRank) Render.fitRank();
+
   // 면접 안내 문구를 전형에 맞춘다
   const gm = $("goto-interview-msg");
   if (gm) {
@@ -3635,6 +4178,74 @@ Render.criteriaPanel = function () {
       : '선택하신 <strong>' + esc(cr.want) + ' ' + esc(r.track) + '</strong>은 <strong class="text-amber-700">서류 + 면접</strong> 전형입니다. ' +
         '서류에서 확인된 것을 면접에서 다시 묻습니다.';
   }
+};
+
+/* ==========================================================================
+   전형 적합도 순위
+
+   같은 학생부라도 전형에 따라 다르게 읽힌다면, 어느 전형이 이 학생을
+   가장 잘 읽어주는지를 바로 보여주는 게 맞다.
+   합격 가능성 순위가 아니다 — '이 기록의 강점이 어느 잣대에서 살아나는가'다.
+   ========================================================================== */
+Criteria.fitRank = function () {
+  const db = state.criteria;
+  if (!db) return [];
+  const sup = Criteria.supply();
+  return db.rows.map(function (r) {
+    let wsum = 0, acc = 0, pen = 0, unknown = false;
+    r.elems.forEach(function (e) {
+      if (e.w === null) { unknown = true; return; }
+      const s = sup[e.map] || { qual: 0, share: 0 };
+      wsum += e.w;
+      acc += e.w * s.qual;
+      if (e.w >= 25 && s.share < 3) pen += 6;
+    });
+    return { r: r, idx: wsum ? Math.max(0, Math.round(acc / wsum) - pen) : null, unknown: unknown };
+  }).filter(function (x) { return x.idx !== null && !x.unknown; })
+    .sort(function (a, b) { return b.idx - a.idx; });
+};
+
+Render.fitRank = function () {
+  const box = $("crit-fit");
+  if (!box) return;
+  const list = Criteria.fitRank();
+  if (!list.length) { box.innerHTML = ""; return; }
+
+  const cur = Criteria.current();
+  const curKey = cur && cur.row ? cur.row.u + "|" + cur.row.track : "";
+  const top = list.slice(0, 5), bottom = list.slice(-3).reverse();
+
+  const line = function (x, rank) {
+    const on = (x.r.u + "|" + x.r.track) === curKey;
+    const big = x.r.elems.slice().sort(function (a, b) { return (b.w || 0) - (a.w || 0); })[0];
+    return '<div class="flex items-center gap-2 px-2 py-1.5 rounded-lg ' +
+      (on ? 'bg-indigo-50 border border-indigo-200' : 'hover:bg-slate-50') + '">' +
+      '<span class="w-5 text-[10px] font-black text-slate-400 tnum flex-shrink-0">' + rank + '</span>' +
+      '<span class="text-[11px] font-bold text-slate-900 flex-shrink-0">' + esc(x.r.u) + '</span>' +
+      '<span class="text-[10px] text-slate-500 truncate flex-1">' + esc(x.r.track) + '</span>' +
+      '<span class="text-[9.5px] text-slate-400 flex-shrink-0 hidden sm:inline">' +
+        esc(big.name) + ' ' + big.w + '%</span>' +
+      '<span class="px-1.5 py-0.5 rounded text-[10px] font-black tnum flex-shrink-0 ' +
+        (x.idx >= list[0].idx - 3 ? 'bg-emerald-100 text-emerald-800' :
+         x.idx >= list[list.length-1].idx + 4 ? 'bg-slate-200 text-slate-700' : 'bg-amber-100 text-amber-900') + '">' + x.idx + '</span>' +
+      '</div>';
+  };
+
+  box.innerHTML =
+    '<div class="rounded-xl border border-slate-200 p-3.5">' +
+      '<div class="flex items-center justify-between mb-2">' +
+        '<p class="text-[11.5px] font-bold text-slate-900">' +
+          '<i class="fa-solid fa-ranking-star text-indigo-600 mr-1"></i>이 기록이 잘 읽히는 전형</p>' +
+        '<span class="text-[9.5px] text-slate-400">수록 ' + list.length + '개 전형 대조</span>' +
+      '</div>' +
+      '<div class="space-y-0.5">' + top.map(function (x, i) { return line(x, i + 1); }).join("") + '</div>' +
+      '<p class="text-[10px] font-bold text-slate-500 mt-2.5 mb-1">잣대가 맞지 않는 쪽</p>' +
+      '<div class="space-y-0.5 opacity-70">' +
+        bottom.map(function (x) { return line(x, list.indexOf(x) + 1); }).join("") + '</div>' +
+      '<p class="text-[9.5px] text-slate-400 leading-relaxed mt-2.5 pt-2 border-t border-slate-100">' +
+        '합격 가능성 순위가 <strong>아닙니다.</strong> 이 학생부의 강점이 어느 대학의 잣대에서 살아나는지를 보여줄 뿐입니다. ' +
+        '내신·모집인원·수능최저는 들어 있지 않습니다. 지원 판단은 이 표만으로 하지 마십시오.</p>' +
+    '</div>';
 };
 
 
@@ -4091,7 +4702,7 @@ Render.interviewAnchor = function () {
 /* ------------------------------------------------------------------ BOOT */
 document.addEventListener("DOMContentLoaded", UI.init);
 
-return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Wipe: Wipe, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
+return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Wipe: Wipe, Quality: Quality, TX: TX, AutoWipe: AutoWipe, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
 })();
 if (typeof window !== "undefined") { window.App = App; window.Criteria = App.Criteria; }
   </script>
