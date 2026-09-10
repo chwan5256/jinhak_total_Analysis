@@ -889,7 +889,6 @@
   </div>
 
   <script>
-
 "use strict";
 /* =========================================================================
    생활기록부 역량 흐름 분석기
@@ -2788,6 +2787,7 @@ const UI = {
     $("info-modal").addEventListener("click", function (e) { if (e.target === $("info-modal")) Info.close(); });
 
     Nav.init();
+    Views.initRouting();
 
     // 대학 · 전형 선택
     $("sel-univ").addEventListener("change", function () {
@@ -2991,10 +2991,41 @@ Export.mail = function () {
   setTimeout(function () { window.location.href = url; }, 400);
 };
 
-/* ================================================================ 화면 전환 */
+/* ================================================================ 화면 전환
+
+   면접 대비는 '다음 페이지'처럼 동작한다. 주소창이 바뀌고 뒤로가기가 먹는다.
+   다만 별도 .html 파일로 나누지는 않는다 — 파일을 나누면 분석 결과를
+   어딘가에 저장해서 넘겨야 하고, 그 저장물이 새로고침 뒤에도 남는다.
+   같은 문서 안에서 해시로 전환하면 주소는 페이지처럼 움직이면서
+   데이터는 메모리에만 남아 탭을 닫는 순간 사라진다.
+                                                                          */
 const Views = {
   cur: "doc",
-  go(which) {
+  HASH: { doc: "", itv: "#interview" },   // 한글 해시는 브라우저가 %인코딩해 비교가 어긋난다
+
+  /** 주소창까지 함께 바꾼다. 뒤로가기로 돌아올 수 있다. */
+  go(which, silent) {
+    if (!silent) {
+      const h = Views.HASH[which] || "";
+      if (h) { if (Views.hashNow() !== h) location.hash = h; }
+      else if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+    }
+    Views.apply(which);
+  },
+
+  hashNow() {
+    try { return decodeURIComponent(location.hash); } catch (e) { return location.hash; }
+  },
+
+  initRouting() {
+    window.addEventListener("hashchange", function () {
+      // 분석 전에는 어떤 해시가 와도 업로드 화면을 유지한다.
+      if (!state.activities.length) return;
+      Views.apply(Views.hashNow() === Views.HASH.itv ? "itv" : "doc");
+    });
+  },
+
+  apply(which) {
     Views.cur = which;
     const doc = $("result-dashboard"), itv = $("interview-view");
     doc.classList.toggle("hidden", which !== "doc");
@@ -3957,7 +3988,6 @@ document.addEventListener("DOMContentLoaded", UI.init);
 return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
 })();
 if (typeof window !== "undefined") { window.App = App; window.Criteria = App.Criteria; }
-
   </script>
 </body>
 </html>

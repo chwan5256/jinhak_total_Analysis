@@ -35,32 +35,66 @@ jobs:
           const fs = require('fs');
           // Windows 체크아웃 시 CRLF가 될 수 있으므로 정규화 후 탐색한다.
           const html = fs.readFileSync('index.html', 'utf8').replace(/\r\n/g, '\n');
-          const i = html.lastIndexOf('<script>\n"use strict";');
-          const j = html.lastIndexOf('</script>');
-          if (i < 0 || j < 0) { console.error('앱 스크립트 블록을 찾지 못했습니다.'); process.exit(1); }
-          fs.writeFileSync('/tmp/app.js', html.slice(i + 8, j));
+
+          // 앱 스크립트 블록은 src 없는 마지막 <script> 다.
+          // 예전에는 '<script>\n"use strict";' 를 글자 그대로 찾았는데,
+          // 빈 줄 하나만 끼어도 검사가 실패해 배포가 통째로 막혔다.
+          // 공백에 관대하게, 그러나 블록은 정확히 찾도록 정규식으로 바꾼다.
+          const re = /<script>\s*"use strict";/g;
+          let m, last = null;
+          while ((m = re.exec(html)) !== null) last = m;
+          if (!last) {
+            console.error('앱 스크립트 블록을 찾지 못했습니다. index.html 안에 <script> ... "use strict"; 가 있어야 합니다.');
+            process.exit(1);
+          }
+          const start = last.index + '<script>'.length;
+          const end = html.indexOf('</script>', start);
+          if (end < 0) { console.error('닫는 </script> 를 찾지 못했습니다.'); process.exit(1); }
+
+          const code = html.slice(start, end);
+          fs.writeFileSync('/tmp/app.js', code);
+          console.log('앱 스크립트 ' + code.length + '자 추출');
           JS
           node --check /tmp/app.js
-          echo "문법 검사 통과"
+          echo "① 문법 검사 통과"
 
-      - name: 단일 파일 원칙 검사 (로컬 참조 금지)
+      - name: 단일 파일 원칙 검사 (로컬 js/css 참조 금지)
         run: |
           if grep -Eq '(src|href)="(\./)?[A-Za-z0-9_./-]+\.(js|css)"' index.html; then
             echo "로컬 js/css 파일을 참조하고 있습니다. 이 앱은 단일 파일이어야 합니다."
             grep -nE '(src|href)="(\./)?[A-Za-z0-9_./-]+\.(js|css)"' index.html
             exit 1
           fi
-          echo "단일 파일 원칙 통과"
+          echo "② 단일 파일 원칙 통과"
 
       - name: 버전 표기 일치 검사
         run: |
           FILE_VER=$(grep -oP 'const VERSION = "\K[0-9.]+' index.html | head -1)
           TITLE_VER=$(grep -oP '<title>.*ver\.\K[0-9.]+' index.html | head -1)
           echo "VERSION=$FILE_VER  TITLE=$TITLE_VER"
+          if [ -z "$FILE_VER" ] || [ -z "$TITLE_VER" ]; then
+            echo "VERSION 상수 또는 <title>의 버전 표기를 찾지 못했습니다."
+            exit 1
+          fi
           if [ "$FILE_VER" != "$TITLE_VER" ]; then
             echo "index.html의 VERSION 상수와 <title> 버전이 다릅니다."
             exit 1
           fi
+          echo "③ 버전 표기 통과"
+
+      - name: 데이터 파일 검사 (있으면 JSON 문법을 본다)
+        run: |
+          ok=1
+          for f in data/*.json; do
+            [ -e "$f" ] || continue
+            if node -e "JSON.parse(require('fs').readFileSync('$f','utf8'))" 2>/dev/null; then
+              echo "  OK  $f"
+            else
+              echo "  깨진 JSON: $f"; ok=0
+            fi
+          done
+          [ "$ok" = "1" ] || exit 1
+          echo "④ 데이터 파일 통과"
 
   deploy:
     needs: verify
