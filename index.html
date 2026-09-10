@@ -341,6 +341,9 @@
           <button id="btn-undo" disabled class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-all flex items-center gap-1.5" title="마지막 재분류 되돌리기 (Ctrl+Z)">
             <i class="fa-solid fa-arrow-rotate-left"></i><span class="hidden md:inline">되돌리기</span>
           </button>
+          <button id="btn-wipe" class="px-2.5 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all flex items-center gap-1.5" title="이 학생의 자료를 화면과 메모리에서 완전히 지웁니다">
+            <i class="fa-solid fa-eraser"></i><span class="hidden md:inline">학생 자료 지우기</span>
+          </button>
           <button id="btn-top" class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 rounded-lg transition-all" title="맨 위로">
             <i class="fa-solid fa-arrow-up"></i>
           </button>
@@ -745,6 +748,9 @@
           <button id="btn-pdf-itv" class="px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all flex items-center gap-1.5">
             <i class="fa-solid fa-file-pdf"></i><span>PDF</span>
           </button>
+          <button id="btn-wipe-itv" class="px-2.5 py-1.5 text-[11px] font-bold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all flex items-center gap-1.5" title="이 학생의 자료를 화면과 메모리에서 완전히 지웁니다">
+            <i class="fa-solid fa-eraser"></i><span class="hidden md:inline">학생 자료 지우기</span>
+          </button>
         </div>
       </div>
 
@@ -877,6 +883,7 @@
       <div class="flex justify-end gap-2 pt-1">
         <button id="dialog-btn-ocr" class="hidden px-3 py-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg"><i class="fa-solid fa-eye mr-1"></i>OCR로 읽기</button>
         <button id="dialog-btn-paste" class="hidden px-3 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg"><i class="fa-solid fa-paste mr-1"></i>붙여넣기</button>
+        <button id="dialog-btn-danger" class="hidden px-3 py-1.5 text-[11px] font-bold text-white bg-rose-600 hover:bg-rose-700 rounded-lg"><i class="fa-solid fa-eraser mr-1"></i>지우기</button>
         <button id="dialog-btn-confirm" class="px-4 py-1.5 text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg">확인</button>
       </div>
     </div>
@@ -2439,7 +2446,16 @@ const UI = {
     wrap.className = "w-10 h-10 rounded-xl bg-" + skin[0] + "-100 text-" + skin[0] + "-600 flex items-center justify-center flex-shrink-0";
     icon.className = "fa-solid " + skin[1] + " text-lg";
 
-    const ocr = $("dialog-btn-ocr"), paste = $("dialog-btn-paste");
+    const ocr = $("dialog-btn-ocr"), paste = $("dialog-btn-paste"), danger = $("dialog-btn-danger");
+    if (opts.onDanger) {
+      danger.classList.remove("hidden");
+      danger.innerHTML = '<i class="fa-solid fa-eraser mr-1"></i>' + (opts.dangerLabel || "지우기");
+      danger.onclick = opts.onDanger;
+      $("dialog-btn-confirm").textContent = "취소";
+    } else {
+      danger.classList.add("hidden");
+      $("dialog-btn-confirm").textContent = "확인";
+    }
     if (opts.onOcr) { ocr.classList.remove("hidden"); ocr.onclick = opts.onOcr; } else ocr.classList.add("hidden");
     if (opts.enablePaste) {
       paste.classList.remove("hidden");
@@ -2692,20 +2708,7 @@ const UI = {
     }
   },
 
-  reset() {
-    state.rawText = ""; state.fileName = ""; state.activities = [];
-    state.student = { name: "", school: "" }; state.history = []; state.selectedSentId = null;
-    $("upload-hub").classList.remove("hidden");
-    $("result-dashboard").classList.add("hidden");
-    $("result-dashboard").classList.remove("is-active");
-    $("interview-view").classList.add("hidden");
-    $("interview-view").classList.remove("is-active");
-    $("btn-reset-all").classList.add("hidden");
-    Nav.show(false);
-    $("pdf-file-input").value = "";
-    $("direct-text-input").value = "";
-    window.scrollTo({ top: 0, behavior: "smooth" });
-  },
+  reset() { Wipe.ask(); },
 
   loadSample() {
     UI.process(SAMPLE_TEXT, "샘플_기계공학_희망학생.pdf");
@@ -2769,6 +2772,8 @@ const UI = {
     $("btn-pdf-itv").addEventListener("click", function () { Export.pdf(); });
     $("btn-mail").addEventListener("click", function () { Export.mail(); });
     $("btn-top").addEventListener("click", function () { window.scrollTo({ top: 0, behavior: "smooth" }); });
+    $("btn-wipe").addEventListener("click", Wipe.ask);
+    $("btn-wipe-itv").addEventListener("click", Wipe.ask);
 
     // 화면 전환
     $("btn-goto-interview").addEventListener("click", function () { Views.go("itv"); });
@@ -3168,6 +3173,107 @@ const Nav = {
     });
     $$("a.navlink", box).forEach(function (a) {
       a.classList.toggle("is-active", a.getAttribute("href") === cur);
+    });
+  }
+};
+
+/* ==========================================================================
+   학생 자료 지우기
+
+   기존 '새 분석'은 화면을 감추기만 했다. 감춘 것은 지운 것이 아니다 —
+   #result-dashboard 안에는 학생 이름·300문장·성적표가 그대로 남아 있어서
+   뒤로가기·개발자도구·인쇄 미리보기로 다시 보인다.
+   여기서는 state 를 비우고 DOM 의 내용까지 실제로 지운다.
+   ========================================================================== */
+const Wipe = {
+  /** 학생 내용이 그려지는 컨테이너. 여기 innerHTML 을 비운다. */
+  BOXES: [
+    "activity-rows-container", "counsel-sheet", "grade-flow", "consulting-cards",
+    "score-rows", "gpa-by-area", "peer-rows", "peer-counts", "peer-compare", "peer-src",
+    "crit-head", "crit-rows", "crit-verdict", "crit-actions",
+    "linkage-rows", "linkage-summary", "linkage-single",
+    "interview-rows", "itv-common-rows", "itv-anchor", "interview-gap", "itv-proxy",
+    "major-depth-content", "major-detected-keywords", "major-interview-questions",
+    "required-courses-list", "recommended-courses-list",
+    "sub-academic", "sub-career", "sub-community"
+  ],
+  /** 학생 정보가 글자로 들어가는 자리. 기본 문구로 되돌린다. */
+  TEXTS: {
+    "label-student-name": "분석 대상 학생", "badge-school": "고등학교",
+    "label-parse-quality": "", "print-meta": "", "print-meta-itv": "",
+    "stat-total-sentences": "0", "stat-total-activities": "0",
+    "stat-academic-count": "0", "stat-career-count": "0", "stat-community-count": "0",
+    "stat-academic-ratio": "0%", "stat-career-ratio": "0%", "stat-community-ratio": "0%",
+    "gpa-overall": "–", "z-all": "–", "z-sci": "–",
+    "z-all-top": "", "z-sci-top": "", "z-comment": "",
+    "linkage-note": "", "interview-note": "", "toast-msg": "",
+    // 확인 대화상자에 학생 이름이 남는다. 닫아도 DOM 에는 있으므로 함께 지운다.
+    "dialog-message": "", "dialog-title": "알림"
+  },
+
+  run() {
+    // 1. 메모리
+    state.rawText = ""; state.fileName = "";
+    state.student = { name: "", school: "" };
+    state.activities = [];
+    state.transcript = { courses: [], gpa: null, zsum: null };
+    state.parseQuality = ""; state.sourceFormat = "";
+    state.stats = null; state.history = []; state.selectedSentId = null;
+    state.filter = { grade: "all", section: "all", search: "", lowConfOnly: false };
+    state.peerFilter = { kind: "all", q: "" };
+    if (typeof Linkage !== "undefined") { Linkage._cache = null; Linkage._cacheKey = null; }
+
+    // 2. 화면에 남은 내용 — 감추는 게 아니라 지운다
+    Wipe.BOXES.forEach(function (id) { const el = $(id); if (el) el.innerHTML = ""; });
+    Object.keys(Wipe.TEXTS).forEach(function (id) { const el = $(id); if (el) el.textContent = Wipe.TEXTS[id]; });
+    ["bar-academic", "bar-career", "bar-community"].forEach(function (id) {
+      const el = $(id); if (el) el.style.width = "0%";
+    });
+
+    // 3. 입력창
+    $("pdf-file-input").value = "";
+    $("direct-text-input").value = "";
+    $("search-keyword").value = "";
+    $("filter-section").value = "all";
+    $("filter-lowconf").checked = false;
+    $("peer-search").value = "";
+    $("peer-kind").value = "all";
+    $$(".btn-filter-grade").forEach(function (b) {
+      const on = b.dataset.filterGrade === "all";
+      b.className = "btn-filter-grade px-2.5 py-1 text-[11px] " +
+        (on ? "font-bold rounded-md bg-white text-slate-800 shadow-sm"
+            : "font-medium rounded-md text-slate-600 hover:text-slate-900");
+    });
+
+    // 4. 화면 전환 — 업로드로 되돌리고 주소의 해시도 지운다
+    $("score-panel").classList.add("hidden");
+    $("peer-panel").classList.add("hidden");
+    ["result-dashboard", "interview-view"].forEach(function (id) {
+      $(id).classList.add("hidden"); $(id).classList.remove("is-active");
+    });
+    $("upload-hub").classList.remove("hidden");
+    $("btn-reset-all").classList.add("hidden");
+    $("btn-undo").disabled = true;
+    Nav.show(false);
+    Views.cur = "doc";
+    if (location.hash) history.replaceState(null, "", location.pathname + location.search);
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    toast("학생 자료를 화면과 메모리에서 지웠습니다.");
+  },
+
+  /** 되돌릴 수 없는 동작이므로 한 번 묻는다. */
+  ask() {
+    if (!state.activities.length) { Wipe.run(); return; }
+    const who = state.student.name || "이 학생";
+    UI.dialog({
+      title: "학생 자료를 지울까요?",
+      message: '<strong>' + esc(who) + '</strong>의 분석 결과를 화면과 메모리에서 완전히 지웁니다.<br><br>' +
+               '내려받지 않은 결과는 <strong>복구할 수 없습니다.</strong> ' +
+               '필요하면 먼저 CSV·엑셀·PDF로 저장하거나 인쇄하세요.',
+      type: "warning",
+      dangerLabel: "지우기",
+      onDanger: function () { UI.closeDialog(); Wipe.run(); }
     });
   }
 };
@@ -3985,7 +4091,7 @@ Render.interviewAnchor = function () {
 /* ------------------------------------------------------------------ BOOT */
 document.addEventListener("DOMContentLoaded", UI.init);
 
-return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
+return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Wipe: Wipe, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
 })();
 if (typeof window !== "undefined") { window.App = App; window.Criteria = App.Criteria; }
   </script>
