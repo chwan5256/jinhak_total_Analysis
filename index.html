@@ -6,7 +6,7 @@
   <meta name="description" content="학생부종합전형 서류평가에서 생활기록부가 어떻게 읽힐지를 대학별 평가요소 비중에 맞춰 분해·진단하는 교사용 도구. 브라우저 안에서만 동작한다.">
   <meta name="author" content="남강고등학교 진로진학부">
   <meta name="robots" content="noindex, nofollow">
-  <title>생기부 렌즈 · Record Lens ver.2027.3</title>
+  <title>생기부 렌즈 · Record Lens — 2027학년도 대입전형 기준 (ver.2026.7)</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -103,8 +103,8 @@
               <span class="text-slate-400 font-semibold text-[13px] tracking-tight">Record Lens</span>
             </h1>
             <p class="text-[10.5px] text-slate-500 leading-tight truncate">
-              학생부종합전형 <strong class="text-slate-600">서류 경쟁력</strong> 진단 도구 ·
-              <span data-app-version>ver.2027.3</span>
+              <strong class="text-slate-600">2027학년도 대입전형</strong> 학생부종합 서류 경쟁력 진단 ·
+              <span data-app-version>ver.2026.7</span>
             </p>
           </div>
         </div>
@@ -127,13 +127,12 @@
 
       <nav id="app-nav" class="hidden border-t border-slate-100 -mx-1 px-1 py-1.5 overflow-x-auto" aria-label="결과 구역 이동">
         <div class="flex items-center gap-0.5" id="nav-doc">
-          <a href="#sec-profile"   class="navlink">개요</a>
-          <a href="#sec-inquiry"   class="navlink">탐구 완결성</a>
+          <a href="#sec-profile"   class="navlink">자질 판단</a>
+          <a href="#sec-major"     class="navlink">전공 연계·이수</a>
+          <a href="#sec-thread"    class="navlink">탐구 줄기</a>
           <a href="#sec-criteria"  class="navlink">서류 경쟁력</a>
           <a href="#sec-score"     class="navlink">교과·성적</a>
-          <a href="#sec-linkage"   class="navlink">활동 연결망</a>
           <a href="#sec-flow"      class="navlink">역량 흐름</a>
-          <a href="#sec-major"     class="navlink">전공 진단</a>
           <a href="#sec-detail"    class="navlink">문장 분석</a>
           <a href="#sec-sheet"     class="navlink">상담 시트</a>
         </div>
@@ -381,6 +380,12 @@
           </div>
           <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="axes-rows"></div>
           <div id="axes-summary" class="rounded-xl bg-indigo-50/60 border border-indigo-200/70 p-4"></div>
+
+          <div class="rounded-xl bg-slate-50/70 border border-slate-200/70 p-4">
+            <p class="text-[11.5px] font-bold text-slate-900 mb-2">
+              <i class="fa-solid fa-diagram-project mr-1 text-slate-400"></i>어느 계열의 활동을 했는가</p>
+            <div id="field-rows"></div>
+          </div>
           <div class="hidden">
             <span id="stat-academic-count"></span><span id="stat-academic-ratio"></span><span id="bar-academic"></span><span id="sub-academic"></span>
             <span id="stat-career-count"></span><span id="stat-career-ratio"></span><span id="bar-career"></span><span id="sub-career"></span>
@@ -389,24 +394,76 @@
         </div>
       </section>
 
-      <!-- ══ 탐구 완결성 ══ -->
-      <section id="sec-inquiry" class="scroll-mt-32">
+      <!-- ── 전공 진단 ── -->
+      <section id="sec-major" class="scroll-mt-32">
+        <div class="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 space-y-4 page-break">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-crosshairs"></i></div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">목표 학과 진로연계성 · 교과 이수 점검</h3>
+                <p class="text-[10.5px] text-slate-500">이수 여부는 성적표의 과목 목록으로만 판정합니다. 세특에 과목명이 나온 것은 이수가 아닙니다.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 no-print">
+              <label for="select-target-major" class="text-[11px] font-bold text-slate-700 flex-shrink-0">목표 학과</label>
+              <select id="select-target-major" class="text-[11px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 cursor-pointer"></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-4 bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-600"></i>전공 연계 교과 이수</h4>
+                <span id="major-course-score-badge" class="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800">산출중</span>
+              </div>
+              <div>
+                <p class="text-[10px] font-semibold text-rose-700 mb-1">핵심과목 (대학 지정 필수 권장)</p>
+                <div id="required-courses-list" class="flex flex-wrap gap-1 min-h-[26px] items-center"></div>
+              </div>
+              <div>
+                <p class="text-[10px] font-semibold text-blue-700 mb-1">권장과목</p>
+                <div id="recommended-courses-list" class="flex flex-wrap gap-1 min-h-[26px] items-center"></div>
+              </div>
+              <p class="text-[9.5px] text-slate-400 leading-snug pt-0.5">학교 미개설 과목은 공동교육과정이나 교과 세특을 통한 보완 노력을 정성평가에 반영합니다.</p>
+            </div>
+            <div class="lg:col-span-5 bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-blue-600"></i>탐구 심화도</h4>
+                <span id="major-depth-badge" class="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-100 text-blue-800">진단 중</span>
+              </div>
+              <div class="space-y-2" id="major-depth-content"></div>
+              <div class="pt-1.5 border-t border-slate-200/60">
+                <span class="text-[9.5px] font-semibold text-slate-500">발견된 전공 연계 키워드</span>
+                <div id="major-detected-keywords" class="flex flex-wrap gap-1 mt-1"></div>
+              </div>
+            </div>
+            <div class="lg:col-span-3 bg-amber-50/40 rounded-xl p-3.5 border border-amber-200/60 space-y-2">
+              <h4 class="text-[11px] font-bold text-amber-900 flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-amber-600"></i>전공 확인 질문</h4>
+              <p class="text-[9.5px] text-amber-700/90 leading-snug">전공 이해도를 확인하는 일반 문항입니다. 실제 기출은 면접 대비 화면에 있습니다.</p>
+              <ul id="major-interview-questions" class="space-y-1.5 text-[10.5px] text-slate-700 leading-snug"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 탐구 줄기 ══ -->
+      <section id="sec-thread" class="scroll-mt-32">
         <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 page-break">
           <div class="flex items-start gap-2.5 border-b border-slate-100 pb-3">
-            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center text-sm flex-shrink-0"><i class="fa-solid fa-flask-vial"></i></div>
+            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center text-sm flex-shrink-0"><i class="fa-solid fa-route"></i></div>
             <div>
-              <h3 class="text-sm font-black text-slate-900">탐구 완결성 — 활동 하나하나</h3>
+              <h3 class="text-sm font-black text-slate-900">탐구 줄기 — 무엇이 어디까지 이어졌는가</h3>
               <p class="text-[10.5px] text-slate-500 leading-snug mt-0.5">
-                <strong>계기 → 방법 → 결과 → 한계 → 확장.</strong>
-                한 활동 안에서 몇 단계까지 닫혔는지, 결과물과 느낀 점이 남았는지를 봅니다.
-                활동 개수는 세지 않습니다.
+                한 주제가 <strong>어느 교과에서 시작해 어느 활동으로 번졌는지</strong>를 한 줄로 잇습니다.
+                개별 교과가 혼자 다섯 단계를 갖출 필요는 없고, <strong>줄기 전체에서 닫히면</strong> 됩니다.
+                활동을 하나씩 나열하지 않습니다.
               </p>
             </div>
           </div>
           <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div class="lg:col-span-8 space-y-1.5" id="inq-rows"></div>
+            <div class="lg:col-span-8 space-y-2" id="thread-rows"></div>
             <div class="lg:col-span-4">
-              <div id="inq-summary" class="rounded-xl bg-slate-50/70 border border-slate-200/70 p-3.5 sticky top-[150px]"></div>
+              <div id="thread-summary" class="rounded-xl bg-slate-50/70 border border-slate-200/70 p-3.5 sticky top-[150px]"></div>
             </div>
           </div>
         </div>
@@ -561,58 +618,6 @@
         </div>
       </section>
 
-      <!-- ── 전공 진단 ── -->
-      <section id="sec-major" class="scroll-mt-32">
-        <div class="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 space-y-4 page-break">
-          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-            <div class="flex items-center gap-2.5">
-              <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-crosshairs"></i></div>
-              <div>
-                <h3 class="text-sm font-bold text-slate-900">목표 학과 진로연계성 · 교과 이수 점검</h3>
-                <p class="text-[10.5px] text-slate-500">이수 여부는 성적표의 과목 목록으로만 판정합니다. 세특에 과목명이 나온 것은 이수가 아닙니다.</p>
-              </div>
-            </div>
-            <div class="flex items-center gap-2 no-print">
-              <label for="select-target-major" class="text-[11px] font-bold text-slate-700 flex-shrink-0">목표 학과</label>
-              <select id="select-target-major" class="text-[11px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 cursor-pointer"></select>
-            </div>
-          </div>
-          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
-            <div class="lg:col-span-4 bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
-              <div class="flex items-center justify-between">
-                <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-600"></i>전공 연계 교과 이수</h4>
-                <span id="major-course-score-badge" class="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800">산출중</span>
-              </div>
-              <div>
-                <p class="text-[10px] font-semibold text-rose-700 mb-1">핵심과목 (대학 지정 필수 권장)</p>
-                <div id="required-courses-list" class="flex flex-wrap gap-1 min-h-[26px] items-center"></div>
-              </div>
-              <div>
-                <p class="text-[10px] font-semibold text-blue-700 mb-1">권장과목</p>
-                <div id="recommended-courses-list" class="flex flex-wrap gap-1 min-h-[26px] items-center"></div>
-              </div>
-              <p class="text-[9.5px] text-slate-400 leading-snug pt-0.5">학교 미개설 과목은 공동교육과정이나 교과 세특을 통한 보완 노력을 정성평가에 반영합니다.</p>
-            </div>
-            <div class="lg:col-span-5 bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
-              <div class="flex items-center justify-between">
-                <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-blue-600"></i>탐구 심화도</h4>
-                <span id="major-depth-badge" class="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-100 text-blue-800">진단 중</span>
-              </div>
-              <div class="space-y-2" id="major-depth-content"></div>
-              <div class="pt-1.5 border-t border-slate-200/60">
-                <span class="text-[9.5px] font-semibold text-slate-500">발견된 전공 연계 키워드</span>
-                <div id="major-detected-keywords" class="flex flex-wrap gap-1 mt-1"></div>
-              </div>
-            </div>
-            <div class="lg:col-span-3 bg-amber-50/40 rounded-xl p-3.5 border border-amber-200/60 space-y-2">
-              <h4 class="text-[11px] font-bold text-amber-900 flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-amber-600"></i>전공 확인 질문</h4>
-              <p class="text-[9.5px] text-amber-700/90 leading-snug">전공 이해도를 확인하는 일반 문항입니다. 실제 기출은 면접 대비 화면에 있습니다.</p>
-              <ul id="major-interview-questions" class="space-y-1.5 text-[10.5px] text-slate-700 leading-snug"></ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
       <!-- ── 문장 분석 ── -->
       <section id="sec-detail" class="scroll-mt-32 space-y-3">
         <div class="no-print bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2 flex flex-wrap items-center justify-between gap-2">
@@ -629,9 +634,10 @@
               <option value="자율">자율활동</option>
               <option value="동아리">동아리활동</option>
               <option value="진로">진로활동</option>
-              <option value="봉사">봉사활동</option>
               <option value="행특">행동특성</option>
-              <option value="독서">독서활동</option>
+            </select>
+            <span class="text-[9.5px] text-slate-400">봉사·독서 특기사항은 대입 미반영이라 제외</span>
+            <select class="hidden">
             </select>
             <label class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1.5 cursor-pointer">
               <input type="checkbox" id="filter-lowconf" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
@@ -718,7 +724,7 @@
 
       <!-- 인쇄 꼬리말 -->
       <div class="print-only pt-3 mt-3 border-t border-slate-300 text-[8pt] text-slate-500">
-        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.3</span> — 남강고등학교 진로진학부 ·
+        생기부 렌즈 · Record Lens <span data-app-version>ver.2026.7</span> — 남강고등학교 진로진학부 ·
         자동 분석 결과이며 서류 경쟁력의 최종 판단은 교사가 합니다.
       </div>
     </div>
@@ -825,7 +831,7 @@
       </div>
 
       <div class="print-only pt-3 mt-3 border-t border-slate-300 text-[8pt] text-slate-500">
-        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.3</span> — 남강고등학교 진로진학부 ·
+        생기부 렌즈 · Record Lens <span data-app-version>ver.2026.7</span> — 남강고등학교 진로진학부 ·
         실제 출제 문항이며 답변은 학생 본인의 경험에서 나와야 합니다.
       </div>
     </div>
@@ -838,7 +844,7 @@
       <div>
         <p class="text-xs font-bold text-slate-800">
           생기부 렌즈 · Record Lens
-          <span class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold" data-app-version>ver.2027.3</span>
+          <span class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold" data-app-version>ver.2026.7</span>
         </p>
         <p class="text-[11px] text-slate-500 mt-1">
           만든이 <strong class="text-slate-700">남강고등학교 진로진학부</strong>
@@ -901,7 +907,7 @@
 const App = (() => {
 
 /* ---------------------------------------------------------------- CONST */
-const VERSION = "2027.3";
+const VERSION = "2026.7";
 /** 이 값 미만이면 "교사 재검토 권장"으로 표시한다. 학업/진로 경계 문장을 놓치지 않기 위한 안전망. */
 const CONF_LOW = 0.60;
 
@@ -1839,7 +1845,8 @@ const Render = {
     Render.majorDiagnostic();
     if (Render.linkage) Render.linkage();
     if (Render.axes) Render.axes();
-    if (Render.inquiry) Render.inquiry();
+    if (Render.fields) Render.fields();
+    if (Render.threads) Render.threads();
     if (Render.criteriaPanel) Render.criteriaPanel();
     if (Render.fitRank) Render.fitRank();
     if (Views.cur === "itv" && Render.interviewAll) Render.interviewAll();
@@ -3127,6 +3134,8 @@ function scrubActivities(list) {
   const out = [];
   (list || []).forEach(function (a) {
     if (isPseudoActivity(a)) return;
+    // 봉사활동·독서활동 특기사항은 상급학교에 제공되지 않는다. 분석에서 뺀다.
+    if (a.section === "봉사" || a.section === "독서") return;
     const keep = [];
     (a.sentences || []).forEach(function (s) {
       const c = cleanSentence(s.text);
@@ -4139,8 +4148,8 @@ Render.criteriaPanel = function () {
       '</div>' +
 
       (e.top && e.top.length
-        ? '<details class="mt-1.5"><summary class="text-[9.5px] text-slate-400 cursor-pointer hover:text-slate-600">' +
-          '이 판정의 근거 문장 보기</summary>' +
+        ? '<details open class="mt-1.5"><summary class="text-[9.5px] text-slate-400 cursor-pointer hover:text-slate-600">' +
+          '이 판정의 근거 문장 (눌러서 접기)</summary>' +
           e.top.map(function (x) {
             return '<p class="text-[10px] text-slate-600 leading-snug mt-1">' +
               '<span class="font-semibold text-slate-800">[' + esc(x.a.grade) + '학년 ' + esc(x.a.title) + ']</span> ' +
@@ -4332,145 +4341,6 @@ Render.fitRank = function () {
 
 
 /* ==========================================================================
-   자질 축 판별 + 탐구 완결성
-
-   양(문장 수·비중)은 화면에서 걷어냈다. 남과 비교하지도 않는다.
-   이 기록 하나만 놓고 절대적으로 어느 수준인지만 말한다.
-   ========================================================================== */
-
-const TONE = {
-  emerald: ["bg-emerald-50", "border-emerald-200", "text-emerald-800", "bg-emerald-600"],
-  blue:    ["bg-blue-50",    "border-blue-200",    "text-blue-800",    "bg-blue-600"],
-  amber:   ["bg-amber-50",   "border-amber-200",   "text-amber-900",   "bg-amber-500"],
-  rose:    ["bg-rose-50",    "border-rose-200",    "text-rose-800",    "bg-rose-600"]
-};
-
-Render.axes = function () {
-  const box = $("axes-rows"), sum = $("axes-summary");
-  if (!box) return;
-  const A = Quality.axes();
-
-  box.innerHTML = A.list.map(function (x) {
-    const t = TONE[x.grade.tone];
-    return '<div class="rounded-xl border ' + t[1] + ' ' + t[0] + '/50 p-3.5">' +
-      '<div class="flex items-start justify-between gap-2 mb-2">' +
-        '<div class="flex items-center gap-2 min-w-0">' +
-          '<i class="fa-solid ' + x.icon + '" style="color:' + x.color + '"></i>' +
-          '<span class="text-[12.5px] font-black text-slate-900 truncate">' + esc(x.name) + '</span>' +
-        '</div>' +
-        '<div class="flex items-center gap-1.5 flex-shrink-0">' +
-          '<span class="px-2 py-0.5 rounded text-[10px] font-black ' + t[2] + ' ' + t[0] + ' border ' + t[1] + '">' +
-            x.grade.k + ' · ' + x.grade.label + '</span>' +
-        '</div>' +
-      '</div>' +
-      '<div class="h-1.5 rounded-full bg-white/70 overflow-hidden mb-2">' +
-        '<div class="h-full rounded-full ' + t[3] + '" style="width:' + Math.min(100, x.score) + '%"></div>' +
-      '</div>' +
-      '<p class="text-[10.5px] text-slate-600 leading-relaxed">' + esc(x.grade.desc) + '</p>' +
-      '<p class="text-[10px] text-slate-500 mt-1.5 pt-1.5 border-t border-white/80">' + esc(x.note) + '</p>' +
-      '<p class="text-[9.5px] text-slate-400 mt-1">보는 것: ' + esc(x.why) + '</p>' +
-    '</div>';
-  }).join("");
-
-  const b = A.best, w = A.worst;
-  const gap = b.score - w.score;
-  sum.innerHTML =
-    '<div class="flex items-start gap-2.5">' +
-      '<i class="fa-solid fa-compass-drafting text-indigo-600 mt-0.5"></i>' +
-      '<div class="min-w-0">' +
-        '<p class="text-[12px] font-black text-slate-900">이 학생의 무게중심</p>' +
-        '<p class="text-[11px] text-slate-700 leading-relaxed mt-1">' +
-          '세 축을 같은 잣대로 재면 <strong style="color:' + b.color + '">' + esc(b.name) + '</strong>이(가) 가장 두껍고, ' +
-          '<strong style="color:' + w.color + '">' + esc(w.name) + '</strong>이(가) 가장 얇습니다' +
-          (gap >= 20 ? ' — 격차가 <strong>' + gap + '점</strong>으로 뚜렷합니다. 이 기록은 한쪽으로 기울어 있습니다.'
-           : gap >= 10 ? ' — 격차는 ' + gap + '점으로 보통입니다.'
-           : ' — 격차가 ' + gap + '점뿐이라 세 축이 고른 편입니다.') +
-        '</p>' +
-        '<p class="text-[10.5px] text-slate-600 leading-relaxed mt-1.5">' +
-          (b.key === "ac"
-            ? '학업 쪽이 축이라면, 그 힘이 <strong>전공과 이어진다는 것</strong>을 보여줄 장면이 필요합니다. 성적만으로는 학종에서 끝까지 가지 못합니다.'
-           : b.key === "ca"
-            ? '진로 쪽이 축입니다. 전공 관련 과목 이수와 활동이 한 방향을 봅니다. 여기에 <strong>탐구의 깊이</strong>만 더하면 서류가 완성됩니다.'
-            : '공동체 쪽이 축입니다. 인성 비중이 큰 전형에서 유리합니다. 다만 학업·진로 근거가 얇으면 <strong>학업 능력 자체를 의심</strong>받을 수 있습니다.') +
-        '</p>' +
-      '</div>' +
-    '</div>';
-};
-
-Render.inquiry = function () {
-  const box = $("inq-rows"), sum = $("inq-summary");
-  if (!box) return;
-  const list = Quality.inquiryList();
-  if (!list.length) { box.innerHTML = ""; sum.innerHTML = ""; return; }
-
-  const cnt = { A: 0, B: 0, C: 0, D: 0 };
-  list.forEach(function (x) { cnt[x.grade.k]++; });
-
-  const SEC = { "세특": "교과", "자율": "자율", "동아리": "동아리", "진로": "진로",
-                "봉사": "봉사", "독서": "독서", "행특": "행특" };
-
-  box.innerHTML = list.slice(0, 16).map(function (x) {
-    const t = TONE[x.grade.tone];
-    const stages = STAGE_KEYS.map(function (k) {
-      const on = x.st.keys.indexOf(k) >= 0;
-      return '<span class="px-1 py-0.5 rounded text-[9px] font-bold ' +
-        (on ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-300') + '">' +
-        STAGE[k].label.split("·")[0] + '</span>';
-    }).join("");
-    const miss = STAGE_KEYS.filter(function (k) { return x.st.keys.indexOf(k) < 0; })
-                           .map(function (k) { return STAGE[k].label; });
-    return '<div class="rounded-lg border ' + t[1] + ' p-2.5">' +
-      '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
-        '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-black ' + t[2] + ' ' + t[0] + '">' +
-          x.grade.k + ' ' + x.grade.label + '</span>' +
-        '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600">' +
-          esc(x.a.grade) + '학년 · ' + esc(SEC[x.a.section] || x.a.section) + '</span>' +
-        '<span class="text-[11px] font-bold text-slate-900 truncate">' + esc(x.a.title) + '</span>' +
-      '</div>' +
-      '<div class="flex items-center gap-1 flex-wrap mb-1">' + stages +
-        (x.output ? '<span class="px-1 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 ml-1">결과물</span>' : '') +
-        (x.reflect ? '<span class="px-1 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-800">느낀 점</span>' : '') +
-      '</div>' +
-      (miss.length
-        ? '<p class="text-[9.5px] text-slate-500">빠진 것: <strong>' + esc(miss.join(", ")) + '</strong></p>'
-        : '<p class="text-[9.5px] text-emerald-700 font-semibold">다섯 단계가 모두 있습니다.</p>') +
-    '</div>';
-  }).join("");
-
-  const g = Quality.gradeOf(
-    Math.round((cnt.A * 100 + cnt.B * 70 + cnt.C * 40 + cnt.D * 10) / (list.length || 1)));
-  const t = TONE[g.tone];
-
-  sum.innerHTML =
-    '<p class="text-[11px] font-bold text-slate-900 mb-2">' +
-      '<i class="fa-solid fa-layer-group mr-1 text-slate-400"></i>탐구 완결성 총평</p>' +
-    '<div class="flex items-center gap-2 mb-2">' +
-      '<span class="px-2.5 py-1 rounded-lg text-[13px] font-black ' + t[2] + ' ' + t[0] + ' border ' + t[1] + '">' +
-        g.k + ' · ' + g.label + '</span>' +
-    '</div>' +
-    '<div class="grid grid-cols-4 gap-1 text-center mb-2">' +
-      ["A", "B", "C", "D"].map(function (k, i) {
-        const tt = TONE[GRADE_DEF[i].tone];
-        return '<div class="rounded-lg ' + tt[0] + ' border ' + tt[1] + ' py-1.5">' +
-          '<p class="text-[14px] font-black tnum ' + tt[2] + '">' + cnt[k] + '</p>' +
-          '<p class="text-[9px] ' + tt[2] + '">' + GRADE_DEF[i].label + '</p></div>';
-      }).join("") +
-    '</div>' +
-    '<p class="text-[10.5px] text-slate-600 leading-relaxed">' +
-      (cnt.A >= 3
-        ? '닫힌 탐구가 <strong>' + cnt.A + '건</strong> 있습니다. 서류에서 바로 읽힙니다. 상담에서는 이 중 어느 것을 앞세울지만 정하면 됩니다.'
-       : cnt.A >= 1
-        ? '닫힌 탐구가 <strong>' + cnt.A + '건</strong>입니다. 하나로는 얇습니다. B등급 활동 중 <strong>한계 검토</strong>나 <strong>후속 확장</strong>만 보태면 A로 올라갈 것이 있는지 3학년 기재에서 찾으세요.'
-        : '다섯 단계가 닫힌 탐구가 <strong>없습니다.</strong> 대부분 결과만 적혀 있고 왜 시작했는지, 무엇이 안 됐는지가 비어 있습니다. ' +
-          '3학년 세특에서 <strong>계기와 한계</strong>를 한 줄씩만 살려도 등급이 달라집니다.') +
-    '</p>' +
-    '<p class="text-[9.5px] text-slate-400 leading-relaxed mt-2 pt-2 border-t border-slate-100">' +
-      '다섯 단계는 계기·방법·결과·한계·확장입니다. 결과물과 느낀 점은 각각 0.5단계로 셉니다. ' +
-      '남과 비교한 값이 아니라 이 기록 하나만 놓고 본 절대 등급입니다.</p>';
-};
-
-
-/* ==========================================================================
    활동 핵심요소 연결망
 
    평가자는 활동을 개수로 세지 않는다. 한 주제가 교과 세특 → 동아리 →
@@ -4491,7 +4361,11 @@ const STOP = new Set((
   "다음 이번 당시 최근 이상 이하 정도 수준 상태 상황 조건 방식 형태 종류 " +
   "우리 여러 모든 다른 새로 자기 서로 함께 직접 실천 태세 자료집 주목 배우 건물 " +
   "또한 지속 가능 제시 검토 언급 강조 표현 기록 서술 기술 관찰 발견 도입 적용 " +
-  "자체 전체 일부 각각 특별 일반 기본 핵심 주요 최고 최대 최소 평소 이전"
+  "자체 전체 일부 각각 특별 일반 기본 핵심 주요 최고 최대 최소 평소 이전 " +
+  // 방법·평가를 가리키는 말은 '무엇을 탐구했나'의 답이 아니다
+  "탐구 분석 연구 실험 조사 설계 해결 방안 개선 관리 효율 활용 확인 비교 측정 " +
+  "결과 과제 계획 목표 방향 의미 가치 역할 기능 구조 형태 요소 조건 기준 방법론 " +
+  "중요성 필요성 가능성 어려움 노력함 이해함 학습함 성장함 진행함"
 ).split(/\s+/));
 
 /* 어미·활용형 꼬리. 이런 것으로 끝나면 명사가 아니다. */
@@ -4640,6 +4514,480 @@ Render.linkage = function () {
         '한 영역에서만 반복된 주제입니다. 다른 영역으로 이어졌다면 더 두껍게 읽혔을 것입니다. ' +
         '3학년 세특·진로활동에서 연결할 수 있는지 확인하세요.</p>'
       : '<p class="text-[10px] text-slate-500">눈에 띄는 단발성 주제가 없습니다.</p>');
+};
+
+
+/* ==========================================================================
+   계열 판별 + 탐구 줄기
+
+   ① 계열 : 이 학생이 실제로 어느 계열의 활동을 했는가
+   ② 줄기 : 한 주제가 어느 교과에서 시작해 어느 활동으로 번졌는가
+
+   활동을 하나하나 나열하면 생기부 원본을 보는 것과 다르지 않다.
+   교사가 한 줄기로 볼 수 있게, 주제를 축으로 묶고 연결을 그린다.
+
+   봉사활동 특기사항과 독서활동 특기사항은 2024학년도 대입부터
+   상급학교에 제공되지 않는다. 분석 대상에서 뺀다.
+   ========================================================================== */
+
+/* 대입 미반영 영역 */
+const NOT_USED = { "봉사": true, "독서": true };
+const NOT_USED_LABEL = "대입 미반영";
+
+/* ── 계열 사전 ─────────────────────────────────────────────────────
+   전공(MAJORS)보다 넓은 단위. 학생이 실제로 무엇을 다뤘는지를 본다. */
+const FIELDS = [
+  { k: "mech",  name: "기계 · 로봇 · 모빌리티", icon: "fa-gears", color: "#0f766e",
+    re: /(역학|뉴턴|유체|열역학|모터|토크|마찰|진자|충격량|기계|동력|자율주행|모빌리티|로봇|드론|베르누이|기구|링크|캠|구동)/g },
+  { k: "elec",  name: "전기 · 전자 · 반도체", icon: "fa-microchip", color: "#4338ca",
+    re: /(전기|전자|반도체|회로|전압|전류|저항|다이오드|트랜지스터|센서|아두이노|라즈베리|PCB|집적|웨이퍼|전력|송전|배전|축전|전자기|반도|LED)/g },
+  { k: "comp",  name: "컴퓨터 · 인공지능 · 데이터", icon: "fa-laptop-code", color: "#1d4ed8",
+    re: /(프로그래밍|코딩|파이썬|알고리즘|인공지능|머신러닝|딥러닝|데이터|빅데이터|소프트웨어|앱\s|코드|자료구조|네트워크|보안|암호|시뮬레이션|모델링|통계\s*분석|크롤링)/g },
+  { k: "chem",  name: "화학 · 신소재 · 화공", icon: "fa-flask", color: "#b45309",
+    re: /(화학|분자|원자|이온|산화|환원|촉매|고분자|신소재|그래핀|초전도|반응식|몰\s|용액|산염기|중화|전기분해|합성|배터리|리튬|연료전지)/g },
+  { k: "bio",   name: "생명 · 의약 · 보건", icon: "fa-dna", color: "#059669",
+    re: /(생명|세포|유전|DNA|RNA|단백질|효소|미생물|면역|백신|질병|의학|약학|신약|간호|보건|생태|호르몬|뉴런|바이러스)/g },
+  { k: "earth", name: "지구 · 환경 · 에너지", icon: "fa-earth-asia", color: "#0891b2",
+    re: /(지구|대기|해양|기후|온난화|탄소|environment|환경|생태계|재생\s*에너지|신재생|태양광|풍력|원자력|지열|수소|자원|암석|지질|기상|오염)/g },
+  { k: "math",  name: "수학 · 통계", icon: "fa-square-root-variable", color: "#7c3aed",
+    re: /(미적분|극한|도함수|적분|벡터|행렬|확률|통계|정규분포|수열|함수의|삼각함수|기하|포물선|타원|쌍곡선|증명|정리를|경우의\s*수|표준편차)/g },
+  { k: "arch",  name: "건축 · 토목 · 도시", icon: "fa-building", color: "#78716c",
+    re: /(건축|토목|구조물|하중|교량|도시|공간\s*설계|내진|콘크리트|단열|조경|도면|평면도|건물의|시공)/g },
+  { k: "biz",   name: "경영 · 경제 · 금융", icon: "fa-chart-line", color: "#be123c",
+    re: /(경영|경제|시장|수요|공급|가격|기업|마케팅|투자|금융|주식|환율|GDP|물가|소비자|경쟁력|비용|수익|창업|무역)/g },
+  { k: "soc",   name: "사회 · 정치 · 법", icon: "fa-scale-balanced", color: "#a16207",
+    re: /(사회\s*문제|정치|법률|법적|헌법|인권|정책|제도|복지|불평등|여론|민주|행정|국제\s*관계|외교|갈등\s*조정)/g },
+  { k: "lang",  name: "어문 · 문학 · 언어", icon: "fa-book-open", color: "#c026d3",
+    re: /(문학|소설|시집|시어|언어|어휘|문법|번역|영어\s*지문|고전|작품을|화자|서사|은유|수사|글쓰기|비평|국어학)/g },
+  { k: "edu",   name: "교육 · 심리", icon: "fa-chalkboard-user", color: "#0369a1",
+    re: /(교육|학습법|교수|수업\s*설계|또래\s*멘토|멘토링|심리|인지|발달|상담|동기\s*부여|학습\s*부진|교재)/g },
+  { k: "art",   name: "예술 · 디자인 · 체육", icon: "fa-palette", color: "#db2777",
+    re: /(디자인|미술|조형|색채|음악|연주|작곡|공연|체육|운동\s*기능|무용|영상\s*제작|사진|일러스트)/g }
+];
+
+const Field = {
+  /** 계열별 등장량. 세특·자율·동아리·진로만 센다. */
+  scan() {
+    const hits = {}, ex = {};
+    FIELDS.forEach(function (f) { hits[f.k] = 0; ex[f.k] = []; });
+
+    state.activities.forEach(function (a) {
+      if (NOT_USED[a.section]) return;
+      (a.sentences || []).forEach(function (s) {
+        FIELDS.forEach(function (f) {
+          f.re.lastIndex = 0;
+          const m = s.text.match(f.re);
+          if (m && m.length) {
+            hits[f.k] += m.length;
+            if (ex[f.k].length < 3) ex[f.k].push({ a: a, s: s, w: m[0] });
+          }
+        });
+      });
+    });
+
+    const total = Object.keys(hits).reduce(function (n, k) { return n + hits[k]; }, 0) || 1;
+    const list = FIELDS.map(function (f) {
+      return { f: f, n: hits[f.k], pct: hits[f.k] / total * 100, ex: ex[f.k] };
+    }).filter(function (x) { return x.n > 0; })
+      .sort(function (a, b) { return b.n - a.n; });
+
+    // 집중도 — 상위 두 계열이 전체의 몇 %인가
+    const top2 = list.slice(0, 2).reduce(function (n, x) { return n + x.pct; }, 0);
+    return { list: list, top2: Math.round(top2), total: total };
+  }
+};
+
+/* ── 탐구 줄기 ─────────────────────────────────────────────────────
+   한 주제어가 여러 교과·활동에 걸쳐 나타나면 그것이 '줄기'다.
+   줄기 안에서 5단계가 합쳐서 닫히는지를 본다.
+   각 교과가 혼자 5단계를 갖출 필요는 없다.                            */
+const Thread = {
+  build() {
+    if (!state.activities.length) return [];
+    const map = {};
+
+    state.activities.forEach(function (a) {
+      if (NOT_USED[a.section]) return;
+      (a.sentences || []).forEach(function (s) {
+        const seen = {};
+        Linkage.tokens(s.text).forEach(function (t) {
+          if (seen[t]) return;
+          seen[t] = true;
+          if (!map[t]) map[t] = { t: t, nodes: [], secs: {}, grades: {}, subjects: {}, sents: [] };
+          const m = map[t];
+          m.sents.push({ a: a, s: s });
+          m.secs[a.section] = true;
+          if (a.grade) m.grades[a.grade] = true;
+          if (a.section === "세특") m.subjects[a.title] = true;
+          const key = a.grade + "|" + a.section + "|" + a.title;
+          if (m.nodes.indexOf(key) < 0) m.nodes.push(key);
+        });
+      });
+    });
+
+    let list = Object.keys(map).map(function (k) { return map[k]; }).map(function (m) {
+      m.nSec = Object.keys(m.secs).length;
+      m.nGrade = Object.keys(m.grades).length;
+      m.nSubj = Object.keys(m.subjects).length;
+      m.n = m.sents.length;
+      /* 줄기 자격을 좁게 잡는다. 넓게 잡으면 주제어가 수백 개 나와
+         '연결되어 있다'는 말이 아무 뜻도 없어진다.
+         교과를 넘고 활동으로도 번졌거나, 3년을 관통해야 줄기로 본다. */
+      /* 두 글자짜리는 용언 어간이 잘려 나온 찌꺼기가 많다("스스로"→"스스",
+         "미치는"→"미치"). 두 글자는 계열 사전에 실제로 있는 용어일 때만 인정한다.
+         '전력'·'환경'은 남고 '스스'·'미치'는 버려진다. */
+      if (m.t.length === 2) {
+        let known = false;
+        FIELDS.forEach(function (f) { f.re.lastIndex = 0; if (f.re.test(m.t)) known = true; });
+        if (!known) { m.isThread = false; return m; }
+      }
+      m.isThread = m.n >= 4 && (
+        (m.nSubj >= 2 && m.nSec >= 2) ||        // 두 과목 + 교과 밖 활동
+        (m.nGrade >= 3 && m.nSec >= 2)          // 3년 관통 + 두 영역
+      );
+      return m;
+    }).filter(function (m) { return m.isThread; });
+
+    // 부분문자열 중복 제거 — '자율주행'이 있으면 '주행'은 버린다
+    list.sort(function (a, b) { return (b.nSec * 4 + b.nSubj * 3 + b.nGrade * 3 + b.n) -
+                                      (a.nSec * 4 + a.nSubj * 3 + a.nGrade * 3 + a.n); });
+    const kept = [];
+    list.forEach(function (m) {
+      for (let i = 0; i < kept.length; i++) {
+        const k = kept[i].t;
+        if (k.indexOf(m.t) >= 0 || m.t.indexOf(k) >= 0) return;
+      }
+      kept.push(m);
+    });
+
+    // 줄기별 탐구 완결성 — 줄기 전체 문장을 합쳐서 본다
+    kept.forEach(function (m) {
+      const ss = m.sents.map(function (x) { return x.s; });
+      m.st = Quality.stagesOf(ss);
+      const t = ss.map(function (s) { return s.text; }).join(" ");
+      m.output = OUTPUT_RE.test(t);
+      m.reflect = REFLECT2_RE.test(t);
+      m.grade = Quality.actGrade(m.st, m.output, m.reflect);
+
+      // 학년 × 영역 경로
+      m.path = [];
+      ["1", "2", "3"].forEach(function (g) {
+        ["세특", "자율", "동아리", "진로"].forEach(function (sec) {
+          const hit = m.sents.filter(function (x) { return x.a.grade === g && x.a.section === sec; });
+          if (!hit.length) return;
+          const titles = [];
+          hit.forEach(function (x) { if (titles.indexOf(x.a.title) < 0) titles.push(x.a.title); });
+          m.path.push({ g: g, sec: sec, titles: titles });
+        });
+      });
+      // 계열
+      let best = null;
+      FIELDS.forEach(function (f) {
+        f.re.lastIndex = 0;
+        const c = (t.match(f.re) || []).length;
+        if (c > 0 && (!best || c > best.c)) best = { f: f, c: c };
+      });
+      m.field = best ? best.f : null;
+      m.score = m.nSec * 4 + m.nSubj * 3 + m.nGrade * 3 + m.st.n * 2;
+    });
+
+    kept.sort(function (a, b) { return b.score - a.score; });
+    return kept;
+  }
+};
+
+
+/* ==========================================================================
+   자질 축 판별 + 탐구 완결성
+
+   양(문장 수·비중)은 화면에서 걷어냈다. 남과 비교하지도 않는다.
+   이 기록 하나만 놓고 절대적으로 어느 수준인지만 말한다.
+   ========================================================================== */
+
+const TONE = {
+  emerald: ["bg-emerald-50", "border-emerald-200", "text-emerald-800", "bg-emerald-600"],
+  blue:    ["bg-blue-50",    "border-blue-200",    "text-blue-800",    "bg-blue-600"],
+  amber:   ["bg-amber-50",   "border-amber-200",   "text-amber-900",   "bg-amber-500"],
+  rose:    ["bg-rose-50",    "border-rose-200",    "text-rose-800",    "bg-rose-600"]
+};
+
+Render.axes = function () {
+  const box = $("axes-rows"), sum = $("axes-summary");
+  if (!box) return;
+  const A = Quality.axes();
+
+  box.innerHTML = A.list.map(function (x) {
+    const t = TONE[x.grade.tone];
+    return '<div class="rounded-xl border ' + t[1] + ' ' + t[0] + '/50 p-3.5">' +
+      '<div class="flex items-start justify-between gap-2 mb-2">' +
+        '<div class="flex items-center gap-2 min-w-0">' +
+          '<i class="fa-solid ' + x.icon + '" style="color:' + x.color + '"></i>' +
+          '<span class="text-[12.5px] font-black text-slate-900 truncate">' + esc(x.name) + '</span>' +
+        '</div>' +
+        '<div class="flex items-center gap-1.5 flex-shrink-0">' +
+          '<span class="px-2 py-0.5 rounded text-[10px] font-black ' + t[2] + ' ' + t[0] + ' border ' + t[1] + '">' +
+            x.grade.k + ' · ' + x.grade.label + '</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="h-1.5 rounded-full bg-white/70 overflow-hidden mb-2">' +
+        '<div class="h-full rounded-full ' + t[3] + '" style="width:' + Math.min(100, x.score) + '%"></div>' +
+      '</div>' +
+      '<p class="text-[10.5px] text-slate-600 leading-relaxed">' + esc(x.grade.desc) + '</p>' +
+      '<p class="text-[10px] text-slate-500 mt-1.5 pt-1.5 border-t border-white/80">' + esc(x.note) + '</p>' +
+      '<p class="text-[9.5px] text-slate-400 mt-1">보는 것: ' + esc(x.why) + '</p>' +
+    '</div>';
+  }).join("");
+
+  const b = A.best, w = A.worst;
+  const gap = b.score - w.score;
+  sum.innerHTML =
+    '<div class="flex items-start gap-2.5">' +
+      '<i class="fa-solid fa-compass-drafting text-indigo-600 mt-0.5"></i>' +
+      '<div class="min-w-0">' +
+        '<p class="text-[12px] font-black text-slate-900">이 학생의 무게중심</p>' +
+        '<p class="text-[11px] text-slate-700 leading-relaxed mt-1">' +
+          '세 축을 같은 잣대로 재면 <strong style="color:' + b.color + '">' + esc(b.name) + '</strong>이(가) 가장 두껍고, ' +
+          '<strong style="color:' + w.color + '">' + esc(w.name) + '</strong>이(가) 가장 얇습니다' +
+          (gap >= 20 ? ' — 격차가 <strong>' + gap + '점</strong>으로 뚜렷합니다. 이 기록은 한쪽으로 기울어 있습니다.'
+           : gap >= 10 ? ' — 격차는 ' + gap + '점으로 보통입니다.'
+           : ' — 격차가 ' + gap + '점뿐이라 세 축이 고른 편입니다.') +
+        '</p>' +
+        '<p class="text-[10.5px] text-slate-600 leading-relaxed mt-1.5">' +
+          (b.key === "ac"
+            ? '학업 쪽이 축이라면, 그 힘이 <strong>전공과 이어진다는 것</strong>을 보여줄 장면이 필요합니다. 성적만으로는 학종에서 끝까지 가지 못합니다.'
+           : b.key === "ca"
+            ? '진로 쪽이 축입니다. 전공 관련 과목 이수와 활동이 한 방향을 봅니다. 여기에 <strong>탐구의 깊이</strong>만 더하면 서류가 완성됩니다.'
+            : '공동체 쪽이 축입니다. 인성 비중이 큰 전형에서 유리합니다. 다만 학업·진로 근거가 얇으면 <strong>학업 능력 자체를 의심</strong>받을 수 있습니다.') +
+        '</p>' +
+      '</div>' +
+    '</div>';
+};
+
+Render.inquiry = function () {
+  const box = $("inq-rows"), sum = $("inq-summary");
+  if (!box) return;
+  const list = Quality.inquiryList();
+  if (!list.length) { box.innerHTML = ""; sum.innerHTML = ""; return; }
+
+  const cnt = { A: 0, B: 0, C: 0, D: 0 };
+  list.forEach(function (x) { cnt[x.grade.k]++; });
+
+  const SEC = { "세특": "교과", "자율": "자율", "동아리": "동아리", "진로": "진로",
+                "봉사": "봉사", "독서": "독서", "행특": "행특" };
+
+  box.innerHTML = list.slice(0, 16).map(function (x) {
+    const t = TONE[x.grade.tone];
+    const stages = STAGE_KEYS.map(function (k) {
+      const on = x.st.keys.indexOf(k) >= 0;
+      return '<span class="px-1 py-0.5 rounded text-[9px] font-bold ' +
+        (on ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-300') + '">' +
+        STAGE[k].label.split("·")[0] + '</span>';
+    }).join("");
+    const miss = STAGE_KEYS.filter(function (k) { return x.st.keys.indexOf(k) < 0; })
+                           .map(function (k) { return STAGE[k].label; });
+    return '<div class="rounded-lg border ' + t[1] + ' p-2.5">' +
+      '<div class="flex items-center gap-2 mb-1.5 flex-wrap">' +
+        '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-black ' + t[2] + ' ' + t[0] + '">' +
+          x.grade.k + ' ' + x.grade.label + '</span>' +
+        '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-slate-100 text-slate-600">' +
+          esc(x.a.grade) + '학년 · ' + esc(SEC[x.a.section] || x.a.section) + '</span>' +
+        '<span class="text-[11px] font-bold text-slate-900 truncate">' + esc(x.a.title) + '</span>' +
+      '</div>' +
+      '<div class="flex items-center gap-1 flex-wrap mb-1">' + stages +
+        (x.output ? '<span class="px-1 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 ml-1">결과물</span>' : '') +
+        (x.reflect ? '<span class="px-1 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-800">느낀 점</span>' : '') +
+      '</div>' +
+      (miss.length
+        ? '<p class="text-[9.5px] text-slate-500">빠진 것: <strong>' + esc(miss.join(", ")) + '</strong></p>'
+        : '<p class="text-[9.5px] text-emerald-700 font-semibold">다섯 단계가 모두 있습니다.</p>') +
+    '</div>';
+  }).join("");
+
+  const g = Quality.gradeOf(
+    Math.round((cnt.A * 100 + cnt.B * 70 + cnt.C * 40 + cnt.D * 10) / (list.length || 1)));
+  const t = TONE[g.tone];
+
+  sum.innerHTML =
+    '<p class="text-[11px] font-bold text-slate-900 mb-2">' +
+      '<i class="fa-solid fa-layer-group mr-1 text-slate-400"></i>탐구 완결성 총평</p>' +
+    '<div class="flex items-center gap-2 mb-2">' +
+      '<span class="px-2.5 py-1 rounded-lg text-[13px] font-black ' + t[2] + ' ' + t[0] + ' border ' + t[1] + '">' +
+        g.k + ' · ' + g.label + '</span>' +
+    '</div>' +
+    '<div class="grid grid-cols-4 gap-1 text-center mb-2">' +
+      ["A", "B", "C", "D"].map(function (k, i) {
+        const tt = TONE[GRADE_DEF[i].tone];
+        return '<div class="rounded-lg ' + tt[0] + ' border ' + tt[1] + ' py-1.5">' +
+          '<p class="text-[14px] font-black tnum ' + tt[2] + '">' + cnt[k] + '</p>' +
+          '<p class="text-[9px] ' + tt[2] + '">' + GRADE_DEF[i].label + '</p></div>';
+      }).join("") +
+    '</div>' +
+    '<p class="text-[10.5px] text-slate-600 leading-relaxed">' +
+      (cnt.A >= 3
+        ? '닫힌 탐구가 <strong>' + cnt.A + '건</strong> 있습니다. 서류에서 바로 읽힙니다. 상담에서는 이 중 어느 것을 앞세울지만 정하면 됩니다.'
+       : cnt.A >= 1
+        ? '닫힌 탐구가 <strong>' + cnt.A + '건</strong>입니다. 하나로는 얇습니다. B등급 활동 중 <strong>한계 검토</strong>나 <strong>후속 확장</strong>만 보태면 A로 올라갈 것이 있는지 3학년 기재에서 찾으세요.'
+        : '다섯 단계가 닫힌 탐구가 <strong>없습니다.</strong> 대부분 결과만 적혀 있고 왜 시작했는지, 무엇이 안 됐는지가 비어 있습니다. ' +
+          '3학년 세특에서 <strong>계기와 한계</strong>를 한 줄씩만 살려도 등급이 달라집니다.') +
+    '</p>' +
+    '<p class="text-[9.5px] text-slate-400 leading-relaxed mt-2 pt-2 border-t border-slate-100">' +
+      '다섯 단계는 계기·방법·결과·한계·확장입니다. 결과물과 느낀 점은 각각 0.5단계로 셉니다. ' +
+      '남과 비교한 값이 아니라 이 기록 하나만 놓고 본 절대 등급입니다.</p>';
+};
+
+
+/* ==========================================================================
+   계열 분포 + 탐구 줄기 렌더
+
+   나열하지 않는다. 한 주제가 어느 교과에서 시작해 어느 활동으로
+   번졌는지를 한 줄로 잇는다.
+   ========================================================================== */
+
+Render.fields = function () {
+  const box = $("field-rows");
+  if (!box) return;
+  const F = Field.scan();
+  if (!F.list.length) {
+    box.innerHTML = '<p class="text-[11px] text-slate-400">계열을 판별할 만한 서술을 찾지 못했습니다.</p>';
+    return;
+  }
+  const top = F.list.slice(0, 5);
+  const max = top[0].pct || 1;
+
+  box.innerHTML =
+    '<div class="space-y-1.5">' + top.map(function (x, i) {
+      return '<div class="flex items-center gap-2">' +
+        '<i class="fa-solid ' + x.f.icon + ' text-[11px] w-4 flex-shrink-0" style="color:' + x.f.color + '"></i>' +
+        '<span class="text-[11px] font-bold text-slate-800 w-36 truncate flex-shrink-0">' + esc(x.f.name) + '</span>' +
+        '<div class="flex-1 h-2.5 rounded-full bg-slate-100 overflow-hidden">' +
+          '<div class="h-full rounded-full" style="width:' + (x.pct / max * 100) + '%;background:' + x.f.color + '"></div>' +
+        '</div>' +
+        '<span class="text-[10px] font-bold text-slate-500 tnum w-9 text-right flex-shrink-0">' + x.pct.toFixed(0) + '%</span>' +
+      '</div>';
+    }).join("") + '</div>' +
+    '<p class="text-[10.5px] text-slate-600 leading-relaxed mt-2.5 pt-2.5 border-t border-slate-100">' +
+      '상위 두 계열이 전체의 <strong class="tnum">' + F.top2 + '%</strong>입니다. ' +
+      (F.top2 >= 60
+        ? '<strong>' + esc(top[0].f.name) + '</strong>로 뚜렷하게 모여 있습니다. 계열적합도를 주장하기 좋습니다.'
+        : F.top2 >= 40
+        ? '<strong>' + esc(top[0].f.name) + '</strong>가 중심이나 폭이 넓습니다. 융합으로 읽힐 수도, 산만하게 읽힐 수도 있습니다 — 서사가 중요합니다.'
+        : '어느 계열로도 모이지 않았습니다. 지원 전공과의 연결을 3학년 기재에서 만들어야 합니다.') +
+    '</p>' +
+    (top[0].ex && top[0].ex.length
+      ? '<p class="text-[10px] text-slate-500 mt-1.5"><span class="font-semibold text-slate-700">' +
+        esc(top[0].f.name) + ' 근거:</span> ' +
+        top[0].ex.slice(0, 2).map(function (e) {
+          return '[' + esc(e.a.grade) + '학년 ' + esc(e.a.title) + '] ' + esc(e.s.text.slice(0, 55)) + '…';
+        }).join(' / ') + '</p>'
+      : "");
+};
+
+/* ── 탐구 줄기 지도 ─────────────────────────────────────────────── */
+const SEC_SHORT = { "세특": "교과", "자율": "자율", "동아리": "동아리", "진로": "진로" };
+const SEC_TONE = { "세특": "bg-blue-100 text-blue-800", "자율": "bg-slate-200 text-slate-700",
+                   "동아리": "bg-violet-100 text-violet-800", "진로": "bg-emerald-100 text-emerald-800" };
+
+Render.threads = function () {
+  const box = $("thread-rows"), sum = $("thread-summary");
+  if (!box) return;
+  const list = Thread.build();
+
+  if (!list.length) {
+    box.innerHTML =
+      '<div class="rounded-xl border border-dashed border-rose-300 bg-rose-50/50 p-4">' +
+      '<p class="text-[11.5px] font-bold text-rose-900">이어지는 탐구 줄기를 찾지 못했습니다</p>' +
+      '<p class="text-[10.5px] text-rose-800/90 leading-relaxed mt-1">' +
+      '한 주제가 두 개 이상의 교과나 활동에 걸쳐 나타나야 줄기로 봅니다. ' +
+      '지금은 활동이 각각 따로 서 있습니다. 활동 수가 적어서가 아니라 <strong>같은 관심이 반복되지 않아서</strong>입니다.</p></div>';
+    sum.innerHTML = "";
+    return;
+  }
+
+  const top = list.slice(0, 8);
+  box.innerHTML = top.map(function (m) {
+    const t = TONE[m.grade.tone];
+    const miss = STAGE_KEYS.filter(function (k) { return m.st.keys.indexOf(k) < 0; })
+                           .map(function (k) { return STAGE[k].label; });
+
+    // 학년 → 영역 경로를 한 줄로 잇는다
+    const chain = m.path.map(function (p, i) {
+      return (i ? '<i class="fa-solid fa-arrow-right-long text-slate-300 text-[9px] mx-1"></i>' : '') +
+        '<span class="inline-flex items-center gap-1 px-1.5 py-0.5 rounded ' + SEC_TONE[p.sec] + ' text-[9.5px] font-bold">' +
+        p.g + '학년 ' + SEC_SHORT[p.sec] +
+        (p.sec === "세특" ? ' · ' + esc(p.titles.slice(0, 2).join("/")) : "") + '</span>';
+    }).join("");
+
+    const stages = STAGE_KEYS.map(function (k) {
+      const on = m.st.keys.indexOf(k) >= 0;
+      return '<span class="px-1 py-0.5 rounded text-[9px] font-bold ' +
+        (on ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-300') + '">' +
+        STAGE[k].label.split("·")[0] + '</span>';
+    }).join("");
+
+    return '<div class="rounded-xl border ' + t[1] + ' ' + t[0] + '/40 p-3">' +
+      '<div class="flex items-center justify-between gap-2 mb-1.5 flex-wrap">' +
+        '<div class="flex items-center gap-1.5 min-w-0">' +
+          (m.field ? '<i class="fa-solid ' + m.field.icon + ' text-[11px]" style="color:' + m.field.color + '"></i>' : '') +
+          '<span class="text-[13px] font-black text-slate-900">' + esc(m.t) + '</span>' +
+          '<span class="text-[9.5px] text-slate-500">교과 ' + m.nSubj + ' · 영역 ' + m.nSec + ' · ' + m.nGrade + '개 학년</span>' +
+        '</div>' +
+        '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-black ' + t[2] + ' ' + t[0] + ' border ' + t[1] + '">' +
+          m.grade.k + ' · ' + m.grade.label + '</span>' +
+      '</div>' +
+      '<div class="flex items-center flex-wrap mb-1.5">' + chain + '</div>' +
+      '<div class="flex items-center gap-1 flex-wrap">' + stages +
+        (m.output ? '<span class="px-1 py-0.5 rounded text-[9px] font-bold bg-indigo-100 text-indigo-800 ml-1">결과물</span>' : '') +
+        (m.reflect ? '<span class="px-1 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-800">느낀 점</span>' : '') +
+      '</div>' +
+      (miss.length
+        ? '<p class="text-[9.5px] text-slate-500 mt-1">이 줄기에서 빠진 것: <strong>' + esc(miss.join(", ")) + '</strong></p>'
+        : '<p class="text-[9.5px] text-emerald-700 font-semibold mt-1">계기부터 확장까지 모두 있습니다.</p>') +
+      '<details class="mt-1.5"><summary class="text-[9.5px] text-slate-400 cursor-pointer hover:text-slate-600">근거 문장</summary>' +
+        m.sents.slice(0, 3).map(function (x) {
+          return '<p class="text-[10px] text-slate-600 leading-snug mt-1">' +
+            '<span class="font-semibold text-slate-800">[' + esc(x.a.grade) + '학년 ' + esc(x.a.title) + ']</span> ' +
+            esc(x.s.text.slice(0, 100)) + (x.s.text.length > 100 ? "…" : "") + '</p>';
+        }).join("") + '</details>' +
+    '</div>';
+  }).join("");
+
+  const three = list.filter(function (m) { return m.nGrade >= 3; });
+  const wide = list.filter(function (m) { return m.nSec >= 3; });
+  const closed = list.filter(function (m) { return m.grade.k === "A"; });
+
+  sum.innerHTML =
+    '<p class="text-[11px] font-bold text-slate-900 mb-2"><i class="fa-solid fa-route mr-1 text-slate-400"></i>줄기 총평</p>' +
+    '<div class="grid grid-cols-3 gap-1 text-center mb-2.5">' +
+      [["이어진 줄기", list.length, "slate"], ["3년 관통", three.length, "emerald"], ["닫힌 줄기", closed.length, "blue"]]
+        .map(function (x) {
+          const tt = TONE[x[2]] || TONE.blue;
+          return '<div class="rounded-lg ' + tt[0] + ' border ' + tt[1] + ' py-1.5">' +
+            '<p class="text-[15px] font-black tnum ' + tt[2] + '">' + x[1] + '</p>' +
+            '<p class="text-[9px] ' + tt[2] + '">' + x[0] + '</p></div>';
+        }).join("") +
+    '</div>' +
+    '<p class="text-[10.5px] text-slate-600 leading-relaxed">' +
+      (closed.length >= 2
+        ? '<strong>' + esc(list[0].t) + '</strong> 등 ' + closed.length + '개 줄기가 계기부터 확장까지 닫혀 있습니다. ' +
+          '상담에서는 이 중 하나를 <strong>대표 서사</strong>로 세우면 됩니다.'
+       : closed.length === 1
+        ? '<strong>' + esc(closed[0].t) + '</strong> 하나가 닫힌 줄기입니다. 이것을 축으로 삼되, ' +
+          '두 번째 줄기에 <strong>' + esc(STAGE[STAGE_KEYS.filter(function (k) {
+              return list[1] && list[1].st.keys.indexOf(k) < 0; })[0] || "limit"].label) +
+          '</strong>을 보태면 축이 둘이 됩니다.'
+        : '줄기는 있으나 <strong>닫힌 것이 없습니다.</strong> 대부분 결과만 적혀 있고 왜 시작했는지·무엇이 안 됐는지가 비어 있습니다. ' +
+          '3학년 기재에서 가장 굵은 줄기 하나만 골라 <strong>계기와 한계</strong>를 한 줄씩 살리십시오.') +
+    '</p>' +
+    (three.length
+      ? '<p class="text-[10px] text-emerald-800 bg-emerald-50 border border-emerald-200/70 rounded px-2 py-1.5 mt-2">' +
+        '<strong>' + three.slice(0, 3).map(function (m) { return esc(m.t); }).join(" · ") +
+        '</strong> 은(는) 1~3학년을 관통합니다. 서류에서 <strong>일관성</strong>으로 읽힐 자산입니다.</p>'
+      : '<p class="text-[10px] text-amber-900 bg-amber-50 border border-amber-200/70 rounded px-2 py-1.5 mt-2">' +
+        '3년을 관통하는 줄기가 없습니다. 학년이 바뀔 때마다 관심이 옮겨간 것으로 읽힐 수 있습니다.</p>') +
+    '<p class="text-[9.5px] text-slate-400 leading-relaxed mt-2 pt-2 border-t border-slate-100">' +
+      '한 주제가 두 개 이상의 교과나 활동에 걸쳐 나타나면 줄기로 봅니다. ' +
+      '개별 교과가 혼자 다섯 단계를 갖출 필요는 없고, <strong>줄기 전체에서 닫히면 됩니다.</strong><br>' +
+      '봉사활동·독서활동 특기사항은 대입에 반영되지 않으므로 분석에서 제외했습니다.</p>';
 };
 
 
@@ -4923,7 +5271,7 @@ Render.interviewAnchor = function () {
 /* ------------------------------------------------------------------ BOOT */
 document.addEventListener("DOMContentLoaded", UI.init);
 
-return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Wipe: Wipe, Quality: Quality, TX: TX, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
+return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Wipe: Wipe, Quality: Quality, TX: TX, Field: Field, Thread: Thread, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
 })();
 if (typeof window !== "undefined") { window.App = App; window.Criteria = App.Criteria; }
   </script>
