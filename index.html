@@ -3,16 +3,15 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="description" content="나이스 학교생활기록부를 브라우저 내부에서만 분석하여 학업·진로·공동체 역량 흐름과 전공 적합성을 진단하는 고3 담임 상담 도구.">
+  <meta name="description" content="학생부종합전형 서류평가에서 생활기록부가 어떻게 읽힐지를 대학별 평가요소 비중에 맞춰 분해·진단하는 교사용 도구. 브라우저 안에서만 동작한다.">
+  <meta name="author" content="남강고등학교 진로진학부">
   <meta name="robots" content="noindex, nofollow">
-  <title>생활기록부 역량 흐름 분석기 ver.2026.6</title>
+  <title>생기부 렌즈 · Record Lens ver.2027.1</title>
 
   <script src="https://cdn.tailwindcss.com"></script>
-
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
-
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
@@ -23,44 +22,61 @@
       theme: {
         extend: {
           fontFamily: { sans: ['"Noto Sans KR"', 'sans-serif'] },
-          colors: {
-            brand: { 50:'#f0f7ff', 100:'#e0effe', 500:'#2563eb', 600:'#1d4ed8', 700:'#1e40af' }
-          }
+          colors: { brand: { 50:'#f5f7ff', 100:'#e8ecfb', 500:'#4f46e5', 600:'#4338ca', 700:'#3730a3' } }
         }
       }
     };
   </script>
 
   <style>
-    body { font-family: 'Noto Sans KR', sans-serif; background-color: #f8fafc; }
+    body { font-family: 'Noto Sans KR', sans-serif; background: #f6f7f9; }
+    .tnum { font-variant-numeric: tabular-nums; }
+    .kicker { letter-spacing: .14em; text-transform: uppercase; font-size: 10px; font-weight: 700; }
 
-    .drag-over { background-color: #e0e7ff !important; outline: 2px dashed #4f46e5 !important; outline-offset: -2px; }
-
+    .drag-over { background: #eef2ff !important; outline: 2px dashed #4f46e5 !important; outline-offset: -2px; }
     .sentence-chip { cursor: grab; user-select: none; transition: box-shadow .15s, transform .15s, opacity .15s; }
     .sentence-chip:active { cursor: grabbing; opacity: .65; transform: scale(.98); }
     .sentence-chip:focus-visible { outline: 2px solid #4f46e5; outline-offset: 2px; }
     .sentence-chip.is-selected { box-shadow: 0 0 0 2px #4f46e5; }
 
-    .conf-bar { height: 3px; border-radius: 999px; background: #e2e8f0; overflow: hidden; }
+    .conf-bar { height: 3px; border-radius: 999px; background: #e5e7eb; overflow: hidden; }
     .conf-bar > i { display: block; height: 100%; border-radius: 999px; }
-
     .line-clamp-3 { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
 
-    /* ---------- Print / PDF report layout ---------- */
-    @page { size: A4 portrait; margin: 12mm 10mm; }
+    /* 수요(대학 비중) vs 공급(학생 근거) 이중 막대 */
+    .duo { position: relative; height: 22px; border-radius: 6px; background: #f1f5f9; overflow: hidden; }
+    .duo > .demand { position: absolute; inset: 0 auto 0 0; background: #e0e7ff; }
+    .duo > .supply { position: absolute; left: 0; top: 5px; height: 12px; border-radius: 999px; }
+    .duo > .tick { position: absolute; top: -2px; bottom: -2px; width: 2px; background: #4338ca; }
 
+    /* 상단 내비게이터 */
+    .navlink { position: relative; padding: 6px 10px; border-radius: 8px; font-size: 12px; font-weight: 600;
+               color: #64748b; white-space: nowrap; transition: background .15s, color .15s; cursor: pointer; }
+    .navlink:hover { background: #eef2ff; color: #3730a3; }
+    .navlink.is-active { background: #eef2ff; color: #3730a3; }
+
+    /* 화면 전환 — 서류 분석 / 면접 대비 */
+    .app-view { display: none; }
+    .app-view.is-active { display: block; }
+
+    /* ── 인쇄: 지금 보고 있는 결과 화면만 남긴다 ───────────────── */
+    @page { size: A4 portrait; margin: 12mm 10mm; }
     @media print {
-      .no-print { display: none !important; }
+      html, body { background: #fff !important; font-size: 9.5pt; }
+      body > header, body > footer, body > .app-modal,
+      #upload-hub, #processing-view, #toast, .no-print { display: none !important; }
+      .app-view { display: none !important; }
+      .app-view.is-active { display: block !important; }
+      main { max-width: none !important; padding: 0 !important; margin: 0 !important; }
       .print-only { display: block !important; }
-      body { background: #fff !important; font-size: 9.5pt; }
-      main { max-width: none !important; padding: 0 !important; }
-      .print-shadow-none, .bg-white { box-shadow: none !important; }
-      .page-break { page-break-inside: avoid; break-inside: avoid; }
-      .page-break-before { page-break-before: always; break-before: page; }
+      .page-break { break-inside: avoid; page-break-inside: avoid; }
+      .page-break-before { break-before: page; page-break-before: always; }
       .sentence-chip { break-inside: avoid; }
+      .bg-white, section { box-shadow: none !important; }
+      section { border: 1px solid #cbd5e1 !important; margin-bottom: 8px !important; }
+      #peer-rows, #score-rows, #interview-rows { max-height: none !important; overflow: visible !important; }
+      details { display: none !important; }
       a[href]:after { content: ""; }
-      .print-compact > * + * { margin-top: 4px !important; }
-      #activity-rows-container .grid { break-inside: avoid; }
     }
     .print-only { display: none; }
 
@@ -68,482 +84,812 @@
     ::-webkit-scrollbar-track { background: #f1f5f9; }
     ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
     ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
-
-    @media (prefers-reduced-motion: reduce) {
-      * { animation-duration: .01ms !important; transition-duration: .01ms !important; }
-    }
+    @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
   </style>
 </head>
 <body class="text-slate-800 min-h-screen flex flex-col">
 
-  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm no-print">
-    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <div class="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-600 flex items-center justify-center text-white shadow-md">
-          <i class="fa-solid fa-diagram-project"></i>
-        </div>
-        <div>
-          <h1 class="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">생활기록부 역량 흐름 분석기</h1>
-          <p class="text-[11px] text-slate-500 leading-tight">
-            <span data-app-version>ver.2026.6</span> · 학종 평가요소 3역량 10항목 기준 · 100% 브라우저 로컬 분석
-          </p>
-        </div>
-      </div>
-      <div class="flex items-center space-x-2">
-        <button id="btn-load-sample" class="px-3.5 py-1.5 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl transition-colors flex items-center space-x-1.5">
-          <i class="fa-solid fa-wand-magic-sparkles text-indigo-500"></i>
-          <span>체험용 샘플 불러오기</span>
-        </button>
-        <button id="btn-reset-all" class="hidden px-3.5 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 hover:bg-rose-100 rounded-xl transition-colors flex items-center space-x-1.5">
-          <i class="fa-solid fa-rotate-left"></i>
-          <span>새로 분석하기</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
-
-    <!-- ============ UPLOAD HUB ============ -->
-    <div id="upload-hub" class="space-y-6">
-      <div class="bg-gradient-to-r from-blue-50 via-indigo-50 to-purple-50 border border-blue-200/80 rounded-2xl p-4 sm:p-5 shadow-sm">
-        <div class="flex items-start space-x-3.5">
-          <div class="w-8 h-8 rounded-lg bg-blue-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
-            <i class="fa-solid fa-shield-halved text-sm"></i>
+  <!-- ══════════ 헤더 + 내비게이터 ══════════ -->
+  <header class="bg-white/95 backdrop-blur border-b border-slate-200 sticky top-0 z-30 no-print">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="h-14 flex items-center justify-between gap-4">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-600 to-blue-600 flex items-center justify-center text-white shadow-sm flex-shrink-0">
+            <i class="fa-solid fa-magnifying-glass-chart text-sm"></i>
           </div>
-          <div class="space-y-1">
-            <h2 class="text-sm font-bold text-slate-900 flex items-center gap-1.5">
-              <span>100% 로컬 프라이버시 보호 보장</span>
-              <span class="text-[10px] font-semibold bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full">외부 유출 차단</span>
-            </h2>
-            <p class="text-xs text-slate-600 leading-relaxed">
-              업로드한 생활기록부는 <strong>외부 서버나 데이터베이스로 절대 전송되지 않습니다.</strong>
-              브라우저 로컬 메모리에서만 파싱되며, 페이지를 닫거나 새로고침하면 모든 정보가 즉시 소멸합니다.
-              저장 기능을 의도적으로 두지 않은 이유이므로, 결과는 <strong>CSV·요약시트·인쇄</strong>로 내보내 주세요.
+          <div class="min-w-0">
+            <h1 class="text-[15px] font-extrabold text-slate-900 leading-tight truncate">
+              생기부 렌즈 <span class="text-slate-300 font-normal mx-0.5">·</span>
+              <span class="text-slate-400 font-semibold text-[13px] tracking-tight">Record Lens</span>
+            </h1>
+            <p class="text-[10.5px] text-slate-500 leading-tight truncate">
+              학생부종합전형 <strong class="text-slate-600">서류 경쟁력</strong> 진단 도구 ·
+              <span data-app-version>ver.2027.1</span>
             </p>
           </div>
         </div>
+
+        <div class="flex items-center gap-1.5 flex-shrink-0">
+          <button id="btn-help" class="w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 transition-colors" title="사용법">
+            <i class="fa-regular fa-circle-question"></i>
+          </button>
+          <button id="btn-privacy" class="w-8 h-8 rounded-lg text-slate-400 hover:text-indigo-700 hover:bg-indigo-50 transition-colors" title="개인정보 처리 · 유의사항">
+            <i class="fa-solid fa-shield-halved"></i>
+          </button>
+          <button id="btn-load-sample" class="px-3 py-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-wand-magic-sparkles"></i><span class="hidden sm:inline">샘플</span>
+          </button>
+          <button id="btn-reset-all" class="hidden px-3 py-1.5 text-[11px] font-bold text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg transition-colors flex items-center gap-1.5">
+            <i class="fa-solid fa-rotate-left"></i><span class="hidden sm:inline">새 분석</span>
+          </button>
+        </div>
       </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-        <div class="border-b border-slate-200 bg-slate-50/70 px-4 sm:px-6 py-3 flex flex-wrap gap-2" role="tablist">
+      <nav id="app-nav" class="hidden border-t border-slate-100 -mx-1 px-1 py-1.5 overflow-x-auto" aria-label="결과 구역 이동">
+        <div class="flex items-center gap-0.5" id="nav-doc">
+          <a href="#sec-profile"   class="navlink">개요</a>
+          <a href="#sec-criteria"  class="navlink">서류 경쟁력</a>
+          <a href="#sec-score"     class="navlink">교과·성적</a>
+          <a href="#sec-linkage"   class="navlink">활동 연결망</a>
+          <a href="#sec-flow"      class="navlink">역량 흐름</a>
+          <a href="#sec-major"     class="navlink">전공 진단</a>
+          <a href="#sec-detail"    class="navlink">문장 분석</a>
+          <a href="#sec-sheet"     class="navlink">상담 시트</a>
+        </div>
+        <div class="hidden items-center gap-0.5" id="nav-itv">
+          <button id="btn-back-doc" class="navlink text-indigo-700 bg-indigo-50">
+            <i class="fa-solid fa-arrow-left mr-1"></i>서류 분석으로
+          </button>
+          <a href="#sec-itv-frame"  class="navlink">답변 설계</a>
+          <a href="#sec-itv-common" class="navlink">공통 문항</a>
+          <a href="#sec-itv-exam"   class="navlink">기출 연결</a>
+        </div>
+      </nav>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+
+    <!-- ══════════ 업로드 화면 ══════════ -->
+    <div id="upload-hub" class="space-y-6">
+
+      <div class="text-center max-w-3xl mx-auto pt-2 pb-1">
+        <p class="kicker text-indigo-600">학생부종합전형 서류평가 진단</p>
+        <h2 class="text-2xl sm:text-3xl font-black text-slate-900 mt-2 leading-snug">
+          이 생기부는 그 대학에서<br class="sm:hidden"> 어떻게 읽힐까
+        </h2>
+        <p class="text-sm text-slate-500 mt-3 leading-relaxed">
+          학종은 <strong class="text-slate-700">서류 100%</strong> 또는 <strong class="text-slate-700">서류 + 면접</strong>으로 뽑고,
+          서류 평가요소의 <strong class="text-slate-700">비중은 대학마다 다릅니다.</strong><br class="hidden sm:block">
+          같은 학생부라도 진로역량 50%인 대학과 학업역량 50%인 대학에서 전혀 다르게 읽힙니다.
+        </p>
+      </div>
+
+      <!-- 이 도구의 정체 -->
+      <div class="max-w-4xl mx-auto bg-white rounded-2xl border-2 border-indigo-100 p-5 shadow-sm">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center flex-shrink-0">
+            <i class="fa-solid fa-scale-unbalanced-flip text-sm"></i>
+          </div>
+          <div class="min-w-0">
+            <p class="text-[13px] font-black text-slate-900">이 도구가 하는 일</p>
+            <p class="text-[11.5px] text-slate-600 leading-relaxed mt-1">
+              생활기록부를 문장 단위로 <strong class="text-slate-800">분해</strong>하고, 여러 영역에 흩어진 활동의 핵심요소를
+              <strong class="text-slate-800">연결</strong>한 뒤, 지원하려는 대학·전형의
+              <strong class="text-indigo-700">서류 평가요소 비중에 맞춰 대조</strong>합니다.
+              그 대학이 크게 보는 요소에 이 학생의 근거가 두꺼운지 얇은지를 드러내
+              <strong class="text-slate-800">교사가 서류 경쟁력을 직접 판단</strong>할 재료를 만듭니다.
+            </p>
+            <div class="mt-2.5 pt-2.5 border-t border-slate-100 flex flex-wrap gap-x-4 gap-y-1 text-[10.5px] text-slate-500">
+              <span><i class="fa-solid fa-xmark text-rose-400 mr-1"></i>합격 예측이 아닙니다</span>
+              <span><i class="fa-solid fa-xmark text-rose-400 mr-1"></i>지원 여부를 정해주지 않습니다</span>
+              <span><i class="fa-solid fa-xmark text-rose-400 mr-1"></i>면접 질문 생성기가 아닙니다</span>
+              <span class="text-slate-600 font-semibold"><i class="fa-solid fa-check text-emerald-500 mr-1"></i>판단은 교사가 합니다</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 사용법 3단계 -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 max-w-4xl mx-auto">
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="w-5 h-5 rounded-md bg-slate-900 text-white text-[10px] font-black flex items-center justify-center">1</span>
+            <p class="text-xs font-bold text-slate-900">파일 올리기</p>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            톡톡스쿨 <strong class="text-emerald-700">학생부현황</strong> PDF를 권합니다.
+            성적표까지 들어 있어 교과 이수와 교내 위치까지 봅니다.
+          </p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="w-5 h-5 rounded-md bg-slate-900 text-white text-[10px] font-black flex items-center justify-center">2</span>
+            <p class="text-xs font-bold text-slate-900">대학·전형 고르기</p>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            지원하려는 대학과 전형을 고르면 그 대학의 <strong>실제 평가요소 비중</strong>으로 다시 계산합니다.
+          </p>
+        </div>
+        <div class="bg-white rounded-xl border border-slate-200 p-4">
+          <div class="flex items-center gap-2 mb-1.5">
+            <span class="w-5 h-5 rounded-md bg-slate-900 text-white text-[10px] font-black flex items-center justify-center">3</span>
+            <p class="text-xs font-bold text-slate-900">상담에 쓰기</p>
+          </div>
+          <p class="text-[11px] text-slate-500 leading-relaxed">
+            CSV·엑셀·PDF로 내려받거나 바로 인쇄합니다.
+            면접이 있는 전형이면 <strong>면접 대비</strong>로 이어집니다.
+          </p>
+        </div>
+      </div>
+
+      <!-- 프라이버시 고지 -->
+      <div class="max-w-4xl mx-auto bg-emerald-50/60 border border-emerald-200/80 rounded-xl p-4 flex items-start gap-3">
+        <div class="w-7 h-7 rounded-lg bg-emerald-600 text-white flex items-center justify-center flex-shrink-0 mt-0.5">
+          <i class="fa-solid fa-lock text-[11px]"></i>
+        </div>
+        <div>
+          <p class="text-xs font-bold text-emerald-900">학생 자료는 이 브라우저를 떠나지 않습니다</p>
+          <p class="text-[11px] text-emerald-800/90 leading-relaxed mt-0.5">
+            서버도 데이터베이스도 저장 기능도 없습니다. 새로고침하면 즉시 사라집니다.
+            그래서 결과는 반드시 내려받거나 인쇄해 두셔야 합니다.
+            <button id="link-privacy" class="underline underline-offset-2 font-semibold hover:text-emerald-950">자세히</button>
+          </p>
+        </div>
+      </div>
+
+      <!-- 입력 -->
+      <div class="max-w-4xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
+        <div class="border-b border-slate-200 bg-slate-50/70 px-4 sm:px-6 py-2.5 flex flex-wrap gap-2" role="tablist">
           <button id="tab-btn-pdf" role="tab" aria-selected="true" aria-controls="tab-pane-pdf"
-            class="px-4 py-2 text-sm font-bold rounded-xl bg-white text-blue-600 shadow-sm border border-slate-200/70 transition-all flex items-center space-x-2">
-            <i class="fa-solid fa-file-pdf text-rose-500"></i>
-            <span>나이스 생기부 PDF 업로드</span>
+            class="px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white text-indigo-700 shadow-sm border border-slate-200 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-file-pdf text-rose-500"></i><span>PDF 업로드</span>
           </button>
           <button id="tab-btn-text" role="tab" aria-selected="false" aria-controls="tab-pane-text"
-            class="px-4 py-2 text-sm font-semibold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center space-x-2">
-            <i class="fa-solid fa-paste text-indigo-500"></i>
-            <span>직접 텍스트 붙여넣기 (스캔본/HWP 복사본)</span>
+            class="px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-paste"></i><span>텍스트 붙여넣기</span>
           </button>
         </div>
 
-        <div id="tab-pane-pdf" role="tabpanel" class="p-6 sm:p-10">
+        <div id="tab-pane-pdf" role="tabpanel" class="p-6 sm:p-8">
           <div id="drop-zone" tabindex="0" role="button" aria-label="PDF 파일 선택 또는 드래그"
-            class="border-2 border-dashed border-slate-300 hover:border-blue-500 hover:bg-blue-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 rounded-2xl p-8 sm:p-12 text-center transition-all cursor-pointer flex flex-col items-center justify-center space-y-4">
-            <div class="w-16 h-16 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center text-2xl shadow-inner">
+            class="border-2 border-dashed border-slate-300 hover:border-indigo-500 hover:bg-indigo-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 rounded-xl p-8 sm:p-10 text-center transition-all cursor-pointer flex flex-col items-center justify-center gap-3">
+            <div class="w-14 h-14 rounded-2xl bg-indigo-100 text-indigo-600 flex items-center justify-center text-xl">
               <i class="fa-solid fa-cloud-arrow-up"></i>
             </div>
-            <div class="space-y-1">
-              <p class="text-base font-bold text-slate-800">생기부 PDF를 드래그해 놓으세요</p>
-              <p class="text-xs text-slate-500">나이스 학교생활세부사항기록부(II) · <strong class="text-emerald-700">톡톡스쿨 학생부현황(권장)</strong> 모두 인식합니다.</p>
+            <div>
+              <p class="text-sm font-bold text-slate-800">생기부 PDF를 여기에 놓으세요</p>
+              <p class="text-[11px] text-slate-500 mt-1">클릭하거나 Enter 키로도 파일을 고를 수 있습니다</p>
             </div>
             <input type="file" id="pdf-file-input" accept="application/pdf" class="hidden">
-            <div class="flex flex-wrap items-center justify-center gap-2 pt-2">
-              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600"><i class="fa-solid fa-check text-emerald-500 mr-1.5"></i>정부24 발급본 호환</span>
-              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600"><i class="fa-solid fa-check text-emerald-500 mr-1.5"></i>나이스 대국민서비스 호환</span>
-              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-slate-100 text-slate-600"><i class="fa-solid fa-check text-emerald-500 mr-1.5"></i>스캔본 브라우저 OCR 지원</span>
-              <span class="inline-flex items-center px-2.5 py-1 rounded-md text-[11px] font-medium bg-emerald-50 text-emerald-700 border border-emerald-200"><i class="fa-solid fa-star mr-1.5"></i>톡톡스쿨 학생부현황 = 성적표까지 분석</span>
+            <div class="flex flex-wrap items-center justify-center gap-1.5 pt-1">
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <i class="fa-solid fa-star mr-1"></i>톡톡스쿨 학생부현황 (권장)
+              </span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">나이스 생기부II</span>
+              <span class="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-500">스캔본 OCR</span>
             </div>
           </div>
         </div>
 
-        <div id="tab-pane-text" role="tabpanel" class="p-6 sm:p-8 hidden space-y-4">
-          <div class="space-y-1">
-            <label for="direct-text-input" class="block text-sm font-bold text-slate-800">생활기록부 텍스트 직접 입력</label>
-            <p class="text-xs text-slate-500">PDF에서 글자가 긁히지 않거나, 한글(HWP) 파일 또는 복사해둔 세특/창체 문장을 그대로 붙여넣어 주세요.</p>
-          </div>
-          <textarea id="direct-text-input" rows="10" placeholder="예시:
-[1학년]
-수학: 다항식의 연산과 복소수의 성질을 기하학적으로 해석하며 프랙탈 차원을 스스로 유도함.
-[2학년]
-물리학I: 전자기 유도 현상을 심화 탐구하며 패러데이 법칙 실험에서 발생한 오차 원인을 분석함.
-[진로활동]
-기계공학 자율주행 모빌리티의 에너지 소비 최적화 기술에 흥미를 느끼고, 뉴턴 운동 법칙을 수학적으로 모델링함."
-            class="w-full p-4 text-xs sm:text-sm font-mono bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:outline-none leading-relaxed resize-y"></textarea>
+        <div id="tab-pane-text" role="tabpanel" class="p-6 sm:p-8 hidden space-y-3">
+          <label for="direct-text-input" class="block text-xs font-bold text-slate-800">생활기록부 텍스트 붙여넣기</label>
+          <p class="text-[11px] text-slate-500 -mt-1">PDF에서 글자가 긁히지 않거나 한글(HWP) 복사본을 쓸 때 이용하세요.</p>
+          <textarea id="direct-text-input" rows="9" placeholder="[1학년]&#10;수학: 다항식의 연산과 복소수의 성질을 기하학적으로 해석하며 프랙탈 차원을 스스로 유도함.&#10;[진로활동]&#10;기계공학 자율주행 모빌리티의 에너지 소비 최적화 기술에 흥미를 느끼고 뉴턴 운동 법칙을 수학적으로 모델링함."
+            class="w-full p-3.5 text-xs font-mono bg-slate-50 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:outline-none leading-relaxed resize-y"></textarea>
           <div class="flex justify-end">
-            <button id="btn-parse-text" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl shadow-md transition-all flex items-center space-x-2">
-              <i class="fa-solid fa-bolt"></i><span>텍스트 정밀 분석 시작</span>
+            <button id="btn-parse-text" class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1.5">
+              <i class="fa-solid fa-bolt"></i><span>분석 시작</span>
             </button>
           </div>
         </div>
       </div>
-    </div>
 
-    <!-- ============ PROCESSING ============ -->
-    <div id="processing-view" class="hidden bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center space-y-5 max-w-lg mx-auto my-12" aria-live="polite">
-      <div class="relative w-16 h-16 mx-auto flex items-center justify-center">
-        <div class="absolute inset-0 rounded-full border-4 border-blue-100"></div>
-        <div class="absolute inset-0 rounded-full border-4 border-blue-600 border-t-transparent animate-spin"></div>
-        <i class="fa-solid fa-book-open-reader text-blue-600 text-xl"></i>
-      </div>
-      <div class="space-y-1.5">
-        <h3 id="process-title" class="text-base font-bold text-slate-900">생기부 문서 파싱 중...</h3>
-        <p id="process-sub" class="text-xs text-slate-500">한글 글꼴(ToUnicode CMap) 디코딩 및 텍스트 레이어를 추출하고 있습니다.</p>
-      </div>
-      <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
-        <div id="process-bar" class="bg-blue-600 h-2.5 rounded-full transition-all duration-300" style="width:15%"></div>
-      </div>
-      <p id="process-percent" class="text-xs font-semibold text-blue-600">15%</p>
-    </div>
-
-    <!-- ============ RESULT DASHBOARD ============ -->
-    <div id="result-dashboard" class="hidden space-y-6">
-
-      <!-- Report header (print only) -->
-      <div class="print-only border-b-2 border-slate-800 pb-2 mb-3">
-        <h1 class="text-base font-black">학생부종합전형 역량 흐름 분석 상담 자료</h1>
-        <p class="text-[10pt]" id="print-meta"></p>
-      </div>
-
-      <!-- Summary cards -->
-      <div class="grid grid-cols-1 md:grid-cols-4 gap-4 page-break">
-        <div class="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-[11px] font-semibold tracking-wider text-slate-400 uppercase">STUDENT PROFILE</span>
-              <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[11px] font-bold" id="badge-school">고등학교</span>
-            </div>
-            <h2 class="text-xl font-extrabold text-slate-900 mt-2 flex items-center space-x-2">
-              <span id="label-student-name">분석 대상 학생</span>
-              <i class="fa-solid fa-circle-check text-blue-600 text-sm"></i>
-            </h2>
-            <p class="text-xs text-slate-500 mt-1">총 활동 문장 <strong id="stat-total-sentences" class="text-blue-600 font-bold">0</strong>개 · 활동 단위 <strong id="stat-total-activities" class="text-slate-700 font-bold">0</strong>건</p>
-            <p class="text-[11px] text-slate-400 mt-0.5" id="label-parse-quality"></p>
-          </div>
-          <div class="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between text-xs text-slate-500">
-            <span>2026/2027 대입 기준</span>
-            <span class="text-emerald-600 font-semibold flex items-center gap-1"><i class="fa-solid fa-lock text-[10px]"></i>로컬 검증 완료</span>
-          </div>
-        </div>
-
-        <div class="bg-blue-50/60 rounded-2xl border border-blue-200/80 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-blue-800 flex items-center gap-1.5"><i class="fa-solid fa-book-bookmark text-blue-600"></i> 학업역량</span>
-              <span class="px-2 py-0.5 rounded-full bg-blue-200/60 text-blue-800 text-xs font-bold" id="stat-academic-ratio">0%</span>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1">
-              <span class="text-2xl font-black text-blue-900" id="stat-academic-count">0</span>
-              <span class="text-xs font-medium text-blue-700">개 문장</span>
-            </div>
-            <div class="mt-2 space-y-1" id="sub-academic"></div>
-          </div>
-          <div class="w-full bg-blue-200/50 rounded-full h-1.5 mt-3"><div id="bar-academic" class="bg-blue-600 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
-        </div>
-
-        <div class="bg-emerald-50/60 rounded-2xl border border-emerald-200/80 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-emerald-800 flex items-center gap-1.5"><i class="fa-solid fa-compass text-emerald-600"></i> 진로역량</span>
-              <span class="px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-800 text-xs font-bold" id="stat-career-ratio">0%</span>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1">
-              <span class="text-2xl font-black text-emerald-900" id="stat-career-count">0</span>
-              <span class="text-xs font-medium text-emerald-700">개 문장</span>
-            </div>
-            <div class="mt-2 space-y-1" id="sub-career"></div>
-          </div>
-          <div class="w-full bg-emerald-200/50 rounded-full h-1.5 mt-3"><div id="bar-career" class="bg-emerald-600 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
-        </div>
-
-        <div class="bg-amber-50/60 rounded-2xl border border-amber-200/80 p-5 shadow-sm flex flex-col justify-between">
-          <div>
-            <div class="flex items-center justify-between">
-              <span class="text-xs font-bold text-amber-800 flex items-center gap-1.5"><i class="fa-solid fa-users text-amber-600"></i> 공동체역량</span>
-              <span class="px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-800 text-xs font-bold" id="stat-community-ratio">0%</span>
-            </div>
-            <div class="mt-3 flex items-baseline space-x-1">
-              <span class="text-2xl font-black text-amber-900" id="stat-community-count">0</span>
-              <span class="text-xs font-medium text-amber-700">개 문장</span>
-            </div>
-            <div class="mt-2 space-y-1" id="sub-community"></div>
-          </div>
-          <div class="w-full bg-amber-200/50 rounded-full h-1.5 mt-3"><div id="bar-community" class="bg-amber-600 h-1.5 rounded-full transition-all duration-300" style="width:0%"></div></div>
-        </div>
-      </div>
-
-
-      <!-- 성적 프로파일 (톡톡스쿨 학생부현황 업로드 시에만 표시) -->
-      <div id="score-panel" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-5 page-break">
-        <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
-          <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-chart-simple"></i></div>
-          <div>
-            <h3 class="text-sm sm:text-base font-bold text-slate-900">교과 성적 프로파일 &amp; 교내 상대 위치</h3>
-            <p class="text-[11px] text-slate-500">등급은 9단계로 뭉개집니다. 원점수·평균·표준편차로 표준화 점수(z)를 계산해 같은 등급 안에서의 위치까지 봅니다.</p>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div class="lg:col-span-4 space-y-3">
-            <div class="bg-slate-50/70 rounded-xl p-4 border border-slate-200/70">
-              <p class="text-[11px] font-semibold text-slate-500">평균 내신 등급 (주요교과)</p>
-              <p class="text-3xl font-black text-slate-900 mt-1" id="gpa-overall">–</p>
-              <div class="mt-3 space-y-1.5" id="gpa-by-area"></div>
-            </div>
-            <div class="bg-indigo-50/50 rounded-xl p-4 border border-indigo-200/60">
-              <p class="text-[11px] font-semibold text-indigo-700">교내 표준화 위치 (단위수 가중 평균 z)</p>
-              <div class="mt-2 grid grid-cols-2 gap-2 text-center">
-                <div class="bg-white rounded-lg py-2 border border-indigo-100">
-                  <p class="text-[10px] text-slate-500">전 과목</p>
-                  <p class="text-lg font-black text-indigo-900" id="z-all">–</p>
-                  <p class="text-[10px] text-slate-500" id="z-all-top"></p>
-                </div>
-                <div class="bg-white rounded-lg py-2 border border-indigo-100">
-                  <p class="text-[10px] text-slate-500">수학·과학</p>
-                  <p class="text-lg font-black text-indigo-900" id="z-sci">–</p>
-                  <p class="text-[10px] text-slate-500" id="z-sci-top"></p>
-                </div>
-              </div>
-              <p class="text-[10px] text-indigo-700/80 mt-2 leading-tight" id="z-comment"></p>
-            </div>
-          </div>
-
-          <div class="lg:col-span-8 space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-table-list text-slate-600"></i><span>이수 과목별 교내 위치</span></h4>
-              <span class="text-[10px] text-slate-400">z가 높을수록 교내 상위 · 상위%는 정규분포 가정 추정치</span>
-            </div>
-            <div class="overflow-x-auto -mx-1 px-1">
-              <table class="w-full text-[11px]">
-                <thead><tr class="text-slate-500 border-b border-slate-200">
-                  <th class="text-left py-1.5 font-semibold">학년/학기</th>
-                  <th class="text-left font-semibold">과목</th>
-                  <th class="text-right font-semibold">단위</th>
-                  <th class="text-right font-semibold">원점수</th>
-                  <th class="text-right font-semibold">평균</th>
-                  <th class="text-right font-semibold">등급</th>
-                  <th class="text-right font-semibold">z</th>
-                  <th class="text-right font-semibold">교내 상위</th>
-                </tr></thead>
-                <tbody id="score-rows" class="divide-y divide-slate-100"></tbody>
-              </table>
-            </div>
-            <div id="peer-compare" class="rounded-xl border border-dashed border-slate-300 bg-slate-50/60 p-3 text-[11px] text-slate-600 leading-relaxed"></div>
-          </div>
-        </div>
-      </div>
-
-
-      <!-- 지원 가능성 — data/admissions.json 이 있을 때만 표시 -->
-      <div id="peer-panel" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4 page-break">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-9 h-9 rounded-xl bg-emerald-700 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-scale-balanced"></i></div>
-            <div>
-              <h3 class="text-sm sm:text-base font-bold text-slate-900">비슷한 내신대 비교 · 지원 가능성</h3>
-              <p class="text-[11px] text-slate-500">전년도 대학 발표 입시결과와 대조합니다. <span id="peer-src"></span></p>
-            </div>
-          </div>
-          <div class="flex items-center gap-2 no-print">
-            <select id="peer-kind" class="text-xs font-semibold bg-slate-100 border-none rounded-xl px-3 py-2 text-slate-700 focus:ring-2 focus:ring-emerald-500 cursor-pointer">
-              <option value="all">모든 전형</option>
-              <option value="교과">학생부교과</option>
-              <option value="종합">학생부종합</option>
-              <option value="기타">기타 전형</option>
-            </select>
-            <input type="text" id="peer-search" placeholder="대학·학과 검색" aria-label="대학 학과 검색"
-              class="w-40 px-3 py-1.5 text-xs bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-emerald-500 focus:bg-white transition-all">
-          </div>
-        </div>
-
-        <div class="grid grid-cols-3 gap-3 text-center" id="peer-counts"></div>
-        <div id="peer-rows" class="space-y-1.5 max-h-[420px] overflow-y-auto pr-1"></div>
-        <p class="text-[10px] text-slate-400 leading-relaxed border-t border-slate-100 pt-2">
-          대학마다 컷 정의가 다릅니다(평균·50%컷·70%컷·85%컷). 없는 값은 채우지 않았습니다.
-          전형 방법·수능최저·모집인원 변동은 반영되어 있지 않으므로, 이 표는 <strong>대화를 시작하는 좌표</strong>이지 합격 예측이 아닙니다.
-        </p>
-      </div>
-
-      <!-- Grade-wise flow -->
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-6 space-y-4 page-break">
-        <div class="flex items-center space-x-2.5 border-b border-slate-100 pb-3">
-          <div class="w-9 h-9 rounded-xl bg-slate-800 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-arrow-trend-up"></i></div>
-          <div>
-            <h3 class="text-sm sm:text-base font-bold text-slate-900">학년별 역량 흐름 및 위계성 진단</h3>
-            <p class="text-[11px] text-slate-500">학종은 3년간의 성장 궤적을 봅니다. 학년이 올라갈수록 진로역량 비중과 탐구 심화도가 상승하는지 확인하세요.</p>
-          </div>
-        </div>
-        <div id="grade-flow" class="space-y-2.5"></div>
-      </div>
-
-      <!-- Major diagnostic -->
-      <div class="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 sm:p-6 space-y-5 page-break">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
-          <div class="flex items-center space-x-2.5">
-            <div class="w-9 h-9 rounded-xl bg-indigo-600 text-white flex items-center justify-center text-base shadow-sm"><i class="fa-solid fa-crosshairs"></i></div>
-            <div>
-              <h3 class="text-sm sm:text-base font-bold text-slate-900">목표 학과 진로연계성 &amp; 교과 이수 권장과목 정밀 진단</h3>
-              <p class="text-[11px] text-slate-500">2027 주요 대학(서울대·연세대·경희대·동국대·시립대·숭실대·국민대·한양대에리카) 학종 가이드북 권장과목 및 평가 척도 반영</p>
-            </div>
-          </div>
-          <div class="flex items-center space-x-2 no-print">
-            <label for="select-target-major" class="text-xs font-bold text-slate-700 flex-shrink-0">목표 희망 학과:</label>
-            <select id="select-target-major" class="text-xs font-bold bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-xl px-3 py-2 focus:ring-2 focus:ring-indigo-500 cursor-pointer"></select>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 lg:grid-cols-12 gap-5">
-          <div class="lg:col-span-4 bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-600"></i><span>전공 연계 교과 이수 점검표</span></h4>
-              <span id="major-course-score-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">산출중</span>
-            </div>
-            <div class="space-y-2">
-              <div>
-                <p class="text-[11px] font-semibold text-rose-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-exclamation text-[10px]"></i> 핵심과목 (대학 지정 필수 권장)</p>
-                <div id="required-courses-list" class="flex flex-wrap gap-1.5 min-h-[30px] items-center"></div>
-              </div>
-              <div class="pt-1">
-                <p class="text-[11px] font-semibold text-blue-700 mb-1 flex items-center gap-1"><i class="fa-solid fa-circle-check text-[10px]"></i> 권장과목 (가급적 이수 권장)</p>
-                <div id="recommended-courses-list" class="flex flex-wrap gap-1.5 min-h-[30px] items-center"></div>
-              </div>
-            </div>
-            <p class="text-[10px] text-slate-400 leading-tight pt-1">* 가이드북 평가원칙: 학교 미개설 과목은 공동교육과정 또는 교과 세특을 통한 자발적 보완 노력을 정성평가에 긍정적으로 반영합니다.</p>
-          </div>
-
-          <div class="lg:col-span-5 bg-slate-50/70 rounded-xl p-4 border border-slate-200/70 space-y-3">
-            <div class="flex items-center justify-between">
-              <h4 class="text-xs font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-blue-600"></i><span>활동 수준 및 탐구 심화도 진단</span></h4>
-              <span id="major-depth-badge" class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-100 text-blue-800">진단 중</span>
-            </div>
-            <div class="space-y-2" id="major-depth-content"></div>
-            <div class="pt-2 border-t border-slate-200/60">
-              <span class="text-[10px] font-semibold text-slate-500">생기부 발견 주요 전공 연계 키워드:</span>
-              <div id="major-detected-keywords" class="flex flex-wrap gap-1 mt-1"></div>
-            </div>
-          </div>
-
-          <div class="lg:col-span-3 bg-amber-50/40 rounded-xl p-4 border border-amber-200/60 space-y-2.5">
-            <h4 class="text-xs font-bold text-amber-900 flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-amber-600"></i><span>가이드북 기반 예상 면접 질문</span></h4>
-            <p class="text-[10px] text-amber-700/90 leading-tight">입학사정관이 학생부 진위 여부 및 심화 원리를 확인할 핵심 문항</p>
-            <ul id="major-interview-questions" class="space-y-2 text-[11px] text-slate-700 leading-snug"></ul>
-          </div>
-        </div>
-      </div>
-
-      <!-- Toolbar -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-wrap items-center justify-between gap-3 no-print sticky top-16 z-20">
-        <div class="flex flex-wrap items-center gap-2">
-          <div class="flex items-center space-x-1 bg-slate-100 p-1 rounded-xl" role="group" aria-label="학년 필터">
-            <button data-filter-grade="all" class="btn-filter-grade px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-800 shadow-sm">전체 학년</button>
-            <button data-filter-grade="1" class="btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900">1학년</button>
-            <button data-filter-grade="2" class="btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900">2학년</button>
-            <button data-filter-grade="3" class="btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900">3학년</button>
-          </div>
-          <select id="filter-section" aria-label="영역 필터" class="text-xs font-semibold bg-slate-100 border-none rounded-xl px-3 py-2 text-slate-700 focus:ring-2 focus:ring-blue-500 cursor-pointer">
-            <option value="all">모든 영역 (세특/창체/행특)</option>
-            <option value="세특">교과 세특</option>
-            <option value="자율">창체 - 자율활동</option>
-            <option value="동아리">창체 - 동아리활동</option>
-            <option value="진로">창체 - 진로활동</option>
-            <option value="봉사">창체 - 봉사활동</option>
-            <option value="행특">행동특성 및 종합의견</option>
-            <option value="독서">독서활동</option>
-          </select>
-          <label class="flex items-center gap-1.5 text-xs font-semibold text-slate-600 bg-slate-100 rounded-xl px-3 py-2 cursor-pointer">
-            <input type="checkbox" id="filter-lowconf" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
-            <span>근거 약한 문장만 보기</span>
-          </label>
-        </div>
-
-        <div class="flex items-center space-x-2 w-full sm:w-auto">
-          <div class="relative flex-1 sm:w-56">
-            <i class="fa-solid fa-magnifying-glass absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
-            <input type="text" id="search-keyword" placeholder="키워드 검색 (예: 유전자, 미적분)" aria-label="키워드 검색"
-              class="w-full pl-8 pr-3 py-1.5 text-xs bg-slate-100 border-none rounded-xl focus:ring-2 focus:ring-blue-500 focus:bg-white transition-all">
-          </div>
-          <button id="btn-undo" disabled class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-xl transition-all flex items-center space-x-1.5" title="마지막 재분류 되돌리기 (Ctrl+Z)">
-            <i class="fa-solid fa-arrow-rotate-left"></i><span class="hidden sm:inline">되돌리기</span>
-          </button>
-          <button id="btn-export-csv" class="px-3 py-1.5 text-xs font-semibold text-emerald-700 bg-emerald-50 border border-emerald-200 hover:bg-emerald-100 rounded-xl transition-all flex items-center space-x-1.5">
-            <i class="fa-solid fa-file-excel text-emerald-600"></i><span class="hidden sm:inline">CSV</span>
-          </button>
-          <button id="btn-print" class="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center space-x-1.5">
-            <i class="fa-solid fa-print"></i><span class="hidden sm:inline">보고서 인쇄</span>
-          </button>
-        </div>
-      </div>
-
-      <p class="text-[11px] text-slate-500 no-print flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
-        <span><i class="fa-solid fa-hand-pointer text-slate-400 mr-1"></i>문장을 드래그하거나, 클릭 후 <kbd class="px-1 py-0.5 bg-slate-200 rounded text-[10px] font-mono">1</kbd>/<kbd class="px-1 py-0.5 bg-slate-200 rounded text-[10px] font-mono">2</kbd>/<kbd class="px-1 py-0.5 bg-slate-200 rounded text-[10px] font-mono">3</kbd> 키로 역량을 바꿀 수 있습니다.</span>
-        <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span>노란 점선 = <strong>역량 근거가 약한 서술</strong> — 자동분류를 확정할 수 없고, 학생부 보완이 필요한 지점이기도 합니다</span>
+      <p class="text-center text-[10.5px] text-slate-400 max-w-2xl mx-auto leading-relaxed">
+        자동 분석은 보조 도구입니다. 규칙 기반이라 놓치는 문장이 있고, PDF 서식에 따라 분절이 어긋날 수 있습니다.
+        <button id="link-caveat" class="underline underline-offset-2 hover:text-slate-600">알려진 한계 보기</button>
       </p>
+    </div>
 
-      <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden page-break">
-        <div class="grid grid-cols-12 bg-slate-100/80 border-b border-slate-200 text-xs font-bold text-slate-700 py-3.5 px-4 text-center">
-          <div class="col-span-1">학년/영역</div>
-          <div class="col-span-3 text-left pl-2">탐구 주제 및 활동 원문</div>
-          <div class="col-span-8 grid grid-cols-3 gap-2 text-center">
-            <div class="text-blue-700 flex items-center justify-center gap-1"><span class="w-2 h-2 rounded-full bg-blue-600"></span><span>학업역량</span></div>
-            <div class="text-emerald-700 flex items-center justify-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-600"></span><span>진로역량</span></div>
-            <div class="text-amber-700 flex items-center justify-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-600"></span><span>공동체역량</span></div>
+    <!-- ══════════ 진행 ══════════ -->
+    <div id="processing-view" class="hidden bg-white rounded-2xl border border-slate-200 p-8 shadow-sm text-center space-y-4 max-w-md mx-auto my-16" aria-live="polite">
+      <div class="relative w-14 h-14 mx-auto flex items-center justify-center">
+        <div class="absolute inset-0 rounded-full border-4 border-indigo-100"></div>
+        <div class="absolute inset-0 rounded-full border-4 border-indigo-600 border-t-transparent animate-spin"></div>
+        <i class="fa-solid fa-book-open-reader text-indigo-600"></i>
+      </div>
+      <h3 id="process-title" class="text-sm font-bold text-slate-900">문서를 읽는 중…</h3>
+      <div class="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+        <div id="process-bar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width:15%"></div>
+      </div>
+      <p id="process-percent" class="text-[11px] font-bold text-indigo-600 tnum">15%</p>
+    </div>
+
+    <!-- ══════════ 결과 · 서류 분석 화면 ══════════ -->
+    <div id="result-dashboard" class="app-view hidden space-y-5">
+
+      <!-- 인쇄 전용 머리글 -->
+      <div class="print-only border-b-2 border-slate-900 pb-2 mb-3">
+        <p class="text-[8pt] tracking-widest uppercase">생기부 렌즈 · Record Lens</p>
+        <h1 class="text-[13pt] font-black">학생부종합전형 서류 경쟁력 진단</h1>
+        <p class="text-[8.5pt]" id="print-meta"></p>
+      </div>
+
+      <!-- 액션바 -->
+      <div class="no-print sticky top-[92px] z-20 bg-white/95 backdrop-blur rounded-xl border border-slate-200 shadow-sm px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2 min-w-0">
+          <span class="kicker text-slate-400 hidden sm:inline">내보내기</span>
+          <div class="flex items-center gap-1">
+            <button id="btn-export-csv" class="px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-all flex items-center gap-1.5" title="문장별 분류 결과를 CSV로">
+              <i class="fa-solid fa-file-csv"></i><span>CSV</span>
+            </button>
+            <button id="btn-export-xls" class="px-2.5 py-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 rounded-lg transition-all flex items-center gap-1.5" title="엑셀에서 바로 열리는 표">
+              <i class="fa-solid fa-file-excel"></i><span>엑셀</span>
+            </button>
+            <button id="btn-export-pdf" class="px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all flex items-center gap-1.5" title="인쇄 창에서 'PDF로 저장'을 고르세요">
+              <i class="fa-solid fa-file-pdf"></i><span>PDF</span>
+            </button>
+            <button id="btn-print" class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all flex items-center gap-1.5" title="지금 보고 있는 결과 화면만 인쇄됩니다">
+              <i class="fa-solid fa-print"></i><span>인쇄</span>
+            </button>
+            <button id="btn-mail" class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all flex items-center gap-1.5" title="요약을 메일 본문으로 여는 기능">
+              <i class="fa-regular fa-envelope"></i><span class="hidden sm:inline">메일</span>
+            </button>
           </div>
         </div>
-        <div id="activity-rows-container" class="divide-y divide-slate-100"></div>
-      </div>
-
-      <!-- Consulting summary -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 page-break">
-        <h3 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-indigo-600"></i><span>학생부종합전형 역량 밸런스 총평 및 보완 솔루션</span></h3>
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4" id="consulting-cards"></div>
-      </div>
-
-      <!-- Counseling sheet -->
-      <div class="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-4 page-break page-break-before">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 class="text-base font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-clipboard-user text-slate-700"></i><span>1:1 상담용 요약 시트</span></h3>
-          <button id="btn-copy-sheet" class="no-print px-3 py-1.5 text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-xl transition-all flex items-center gap-1.5">
-            <i class="fa-regular fa-copy"></i><span>텍스트 복사</span>
+        <div class="flex items-center gap-2">
+          <button id="btn-undo" disabled class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:cursor-not-allowed rounded-lg transition-all flex items-center gap-1.5" title="마지막 재분류 되돌리기 (Ctrl+Z)">
+            <i class="fa-solid fa-arrow-rotate-left"></i><span class="hidden md:inline">되돌리기</span>
+          </button>
+          <button id="btn-top" class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-500 hover:text-slate-800 rounded-lg transition-all" title="맨 위로">
+            <i class="fa-solid fa-arrow-up"></i>
           </button>
         </div>
-        <div id="counsel-sheet" class="text-xs leading-relaxed text-slate-700 space-y-3"></div>
       </div>
 
+      <!-- ── 개요 ── -->
+      <section id="sec-profile" class="scroll-mt-32 space-y-4 page-break">
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div class="bg-white rounded-2xl border border-slate-200 p-4 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="kicker text-slate-400">Student</span>
+                <span class="px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-bold" id="badge-school">고등학교</span>
+              </div>
+              <h2 class="text-lg font-black text-slate-900 mt-1.5" id="label-student-name">분석 대상 학생</h2>
+              <p class="text-[11px] text-slate-500 mt-1">
+                문장 <strong id="stat-total-sentences" class="text-indigo-600 font-bold tnum">0</strong>개 ·
+                활동 <strong id="stat-total-activities" class="text-slate-700 font-bold tnum">0</strong>건
+              </p>
+              <p class="text-[10px] text-slate-400 mt-0.5 leading-snug" id="label-parse-quality"></p>
+            </div>
+            <div class="pt-2.5 mt-2.5 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+              <span>2027 대입 기준</span>
+              <span class="text-emerald-600 font-semibold flex items-center gap-1"><i class="fa-solid fa-lock text-[9px]"></i>로컬 분석</span>
+            </div>
+          </div>
+
+          <div class="bg-blue-50/60 rounded-2xl border border-blue-200/80 p-4 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-blue-800 flex items-center gap-1.5"><i class="fa-solid fa-book-bookmark text-blue-600"></i>학업역량</span>
+                <span class="px-2 py-0.5 rounded-full bg-blue-200/60 text-blue-800 text-[11px] font-bold tnum" id="stat-academic-ratio">0%</span>
+              </div>
+              <div class="mt-2 flex items-baseline gap-1">
+                <span class="text-2xl font-black text-blue-900 tnum" id="stat-academic-count">0</span>
+                <span class="text-[11px] font-medium text-blue-700">문장</span>
+              </div>
+              <div class="mt-2 space-y-1" id="sub-academic"></div>
+            </div>
+            <div class="w-full bg-blue-200/50 rounded-full h-1.5 mt-2.5"><div id="bar-academic" class="bg-blue-600 h-1.5 rounded-full transition-all" style="width:0%"></div></div>
+          </div>
+
+          <div class="bg-emerald-50/60 rounded-2xl border border-emerald-200/80 p-4 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-emerald-800 flex items-center gap-1.5"><i class="fa-solid fa-compass text-emerald-600"></i>진로역량</span>
+                <span class="px-2 py-0.5 rounded-full bg-emerald-200/60 text-emerald-800 text-[11px] font-bold tnum" id="stat-career-ratio">0%</span>
+              </div>
+              <div class="mt-2 flex items-baseline gap-1">
+                <span class="text-2xl font-black text-emerald-900 tnum" id="stat-career-count">0</span>
+                <span class="text-[11px] font-medium text-emerald-700">문장</span>
+              </div>
+              <div class="mt-2 space-y-1" id="sub-career"></div>
+            </div>
+            <div class="w-full bg-emerald-200/50 rounded-full h-1.5 mt-2.5"><div id="bar-career" class="bg-emerald-600 h-1.5 rounded-full transition-all" style="width:0%"></div></div>
+          </div>
+
+          <div class="bg-amber-50/60 rounded-2xl border border-amber-200/80 p-4 shadow-sm flex flex-col justify-between">
+            <div>
+              <div class="flex items-center justify-between">
+                <span class="text-[11px] font-bold text-amber-800 flex items-center gap-1.5"><i class="fa-solid fa-users text-amber-600"></i>공동체역량</span>
+                <span class="px-2 py-0.5 rounded-full bg-amber-200/60 text-amber-800 text-[11px] font-bold tnum" id="stat-community-ratio">0%</span>
+              </div>
+              <div class="mt-2 flex items-baseline gap-1">
+                <span class="text-2xl font-black text-amber-900 tnum" id="stat-community-count">0</span>
+                <span class="text-[11px] font-medium text-amber-700">문장</span>
+              </div>
+              <div class="mt-2 space-y-1" id="sub-community"></div>
+            </div>
+            <div class="w-full bg-amber-200/50 rounded-full h-1.5 mt-2.5"><div id="bar-community" class="bg-amber-600 h-1.5 rounded-full transition-all" style="width:0%"></div></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 서류 경쟁력 진단 — 이 도구의 핵심 ══ -->
+      <section id="sec-criteria" class="scroll-mt-32">
+        <div class="bg-white rounded-2xl border-2 border-indigo-200 shadow-sm overflow-hidden page-break">
+          <div class="bg-gradient-to-r from-indigo-50 to-blue-50/50 border-b border-indigo-100 px-5 py-4">
+            <div class="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
+              <div class="flex items-start gap-2.5">
+                <div class="w-9 h-9 rounded-lg bg-indigo-600 text-white flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-scale-unbalanced-flip text-sm"></i></div>
+                <div>
+                  <h3 class="text-[15px] font-black text-slate-900">서류 경쟁력 진단</h3>
+                  <p class="text-[10.5px] text-slate-600 leading-snug mt-0.5">
+                    이 대학이 <strong>크게 보는 요소</strong>에 이 학생의 근거가 두꺼운지 얇은지를 대조합니다.
+                    합격 예측이 아니라 <strong>판단 재료</strong>입니다.
+                  </p>
+                </div>
+              </div>
+              <div class="flex flex-wrap items-center gap-2 no-print">
+                <select id="sel-univ" class="text-[11px] font-bold bg-white border border-indigo-200 text-indigo-900 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 cursor-pointer"></select>
+                <select id="sel-track" class="text-[11px] font-bold bg-white border border-indigo-200 text-indigo-900 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 cursor-pointer max-w-[240px]"></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-5 space-y-4">
+            <!-- 전형 개요 -->
+            <div id="crit-head" class="rounded-xl bg-slate-50/70 border border-slate-200/70 p-3.5"></div>
+
+            <!-- 요소별 수요 vs 공급 -->
+            <div class="space-y-2.5" id="crit-rows"></div>
+
+            <!-- 종합 코멘트 -->
+            <div id="crit-verdict" class="rounded-xl border p-4"></div>
+
+            <!-- 상담에서 확인할 것 -->
+            <div id="crit-actions" class="grid grid-cols-1 md:grid-cols-2 gap-2.5"></div>
+
+            <p class="text-[9.5px] text-slate-400 leading-relaxed border-t border-slate-100 pt-2.5">
+              평가요소와 반영비율은 각 대학이 공시한 2027 학생부종합전형 가이드북에서 옮긴 값입니다.
+              확인하지 못한 비중은 추정하지 않고 '확인 필요'로 둡니다.
+              <strong>최종 확인은 반드시 해당 대학 수시모집요강으로 하십시오.</strong>
+              근거 두께는 이 도구의 자동 분류 결과이므로, 문장 분석 구역에서 분류를 다듬으면 이 진단도 함께 바뀝니다.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 교과·성적 ── -->
+      <section id="sec-score" class="scroll-mt-32">
+        <div id="score-panel" class="hidden bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 page-break">
+          <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-chart-simple"></i></div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">교과 성적 프로파일 · 교내 상대 위치</h3>
+              <p class="text-[10.5px] text-slate-500">등급은 9단계로 뭉갭니다. 원점수·평균·표준편차로 표준화 점수(z)를 내면 같은 등급 안의 위치가 드러납니다.</p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-4 space-y-2.5">
+              <div class="bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70">
+                <p class="kicker text-slate-400">평균 내신 (주요교과)</p>
+                <p class="text-3xl font-black text-slate-900 mt-0.5 tnum" id="gpa-overall">–</p>
+                <div class="mt-2.5 space-y-1.5" id="gpa-by-area"></div>
+              </div>
+              <div class="bg-indigo-50/50 rounded-xl p-3.5 border border-indigo-200/60">
+                <p class="kicker text-indigo-600">교내 표준화 위치 (단위수 가중)</p>
+                <div class="mt-2 grid grid-cols-2 gap-2 text-center">
+                  <div class="bg-white rounded-lg py-2 border border-indigo-100">
+                    <p class="text-[10px] text-slate-500">전 과목</p>
+                    <p class="text-base font-black text-indigo-900 tnum" id="z-all">–</p>
+                    <p class="text-[9.5px] text-slate-500 tnum" id="z-all-top"></p>
+                  </div>
+                  <div class="bg-white rounded-lg py-2 border border-indigo-100">
+                    <p class="text-[10px] text-slate-500">수학·과학</p>
+                    <p class="text-base font-black text-indigo-900 tnum" id="z-sci">–</p>
+                    <p class="text-[9.5px] text-slate-500 tnum" id="z-sci-top"></p>
+                  </div>
+                </div>
+                <p class="text-[10px] text-indigo-700/80 mt-2 leading-snug" id="z-comment"></p>
+              </div>
+            </div>
+            <div class="lg:col-span-8 space-y-2">
+              <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-table-list text-slate-500"></i>이수 과목별 교내 위치</h4>
+              <div class="overflow-x-auto">
+                <table class="w-full text-[10.5px]">
+                  <thead><tr class="text-slate-500 border-b border-slate-200">
+                    <th class="text-left py-1.5 font-semibold">학년/학기</th><th class="text-left font-semibold">과목</th>
+                    <th class="text-right font-semibold">단위</th><th class="text-right font-semibold">원점수</th>
+                    <th class="text-right font-semibold">평균</th><th class="text-right font-semibold">등급</th>
+                    <th class="text-right font-semibold">z</th><th class="text-right font-semibold">교내 상위</th>
+                  </tr></thead>
+                  <tbody id="score-rows" class="divide-y divide-slate-100"></tbody>
+                </table>
+              </div>
+              <div id="peer-compare" class="rounded-lg border border-dashed border-slate-300 bg-slate-50/60 p-2.5 text-[10.5px] text-slate-600 leading-relaxed"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ══ 활동 핵심요소 연결망 ══ -->
+      <section id="sec-linkage" class="scroll-mt-32">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-4 page-break">
+          <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+            <div class="w-8 h-8 rounded-lg bg-violet-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-diagram-project"></i></div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">활동 핵심요소 연결망</h3>
+              <p class="text-[10.5px] text-slate-500">
+                평가자는 활동을 <strong>개수</strong>로 세지 않고 <strong>이어지는지</strong>로 봅니다.
+                한 주제가 교과 세특 → 동아리 → 진로활동 → 독서로 이어지고 학년이 올라가며 깊어졌는지를 확인합니다.
+              </p>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-8 space-y-2">
+              <div class="flex items-center justify-between">
+                <h4 class="text-[11px] font-bold text-slate-800">주제별 확산 지도</h4>
+                <span class="text-[9.5px] text-slate-400" id="linkage-note"></span>
+              </div>
+              <div id="linkage-rows" class="space-y-1.5"></div>
+            </div>
+            <div class="lg:col-span-4 space-y-2.5">
+              <div id="linkage-summary" class="rounded-xl bg-violet-50/50 border border-violet-200/60 p-3.5"></div>
+              <div id="linkage-single" class="rounded-xl bg-slate-50/70 border border-slate-200/70 p-3.5"></div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 역량 흐름 ── -->
+      <section id="sec-flow" class="scroll-mt-32 space-y-4">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5 page-break">
+          <div class="flex items-center gap-2.5 border-b border-slate-100 pb-3">
+            <div class="w-8 h-8 rounded-lg bg-slate-900 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-arrow-trend-up"></i></div>
+            <div>
+              <h3 class="text-sm font-bold text-slate-900">학년별 역량 흐름 · 위계성</h3>
+              <p class="text-[10.5px] text-slate-500">학종은 3년의 성장 궤적을 봅니다. 학년이 오를수록 진로역량 비중과 탐구 심화도가 오르는지 확인하세요.</p>
+            </div>
+          </div>
+          <div id="grade-flow" class="space-y-2.5"></div>
+        </div>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5 page-break">
+          <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-indigo-600"></i>역량 밸런스 총평 · 보완 지점</h3>
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-3" id="consulting-cards"></div>
+        </div>
+      </section>
+
+      <!-- ── 전공 진단 ── -->
+      <section id="sec-major" class="scroll-mt-32">
+        <div class="bg-white rounded-2xl border border-indigo-100 shadow-sm p-5 space-y-4 page-break">
+          <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
+            <div class="flex items-center gap-2.5">
+              <div class="w-8 h-8 rounded-lg bg-indigo-600 text-white flex items-center justify-center text-sm"><i class="fa-solid fa-crosshairs"></i></div>
+              <div>
+                <h3 class="text-sm font-bold text-slate-900">목표 학과 진로연계성 · 교과 이수 점검</h3>
+                <p class="text-[10.5px] text-slate-500">이수 여부는 성적표의 과목 목록으로만 판정합니다. 세특에 과목명이 나온 것은 이수가 아닙니다.</p>
+              </div>
+            </div>
+            <div class="flex items-center gap-2 no-print">
+              <label for="select-target-major" class="text-[11px] font-bold text-slate-700 flex-shrink-0">목표 학과</label>
+              <select id="select-target-major" class="text-[11px] font-bold bg-indigo-50 border border-indigo-200 text-indigo-900 rounded-lg px-2.5 py-1.5 focus:ring-2 focus:ring-indigo-500 cursor-pointer"></select>
+            </div>
+          </div>
+          <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+            <div class="lg:col-span-4 bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-list-check text-indigo-600"></i>전공 연계 교과 이수</h4>
+                <span id="major-course-score-badge" class="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-emerald-100 text-emerald-800">산출중</span>
+              </div>
+              <div>
+                <p class="text-[10px] font-semibold text-rose-700 mb-1">핵심과목 (대학 지정 필수 권장)</p>
+                <div id="required-courses-list" class="flex flex-wrap gap-1 min-h-[26px] items-center"></div>
+              </div>
+              <div>
+                <p class="text-[10px] font-semibold text-blue-700 mb-1">권장과목</p>
+                <div id="recommended-courses-list" class="flex flex-wrap gap-1 min-h-[26px] items-center"></div>
+              </div>
+              <p class="text-[9.5px] text-slate-400 leading-snug pt-0.5">학교 미개설 과목은 공동교육과정이나 교과 세특을 통한 보완 노력을 정성평가에 반영합니다.</p>
+            </div>
+            <div class="lg:col-span-5 bg-slate-50/70 rounded-xl p-3.5 border border-slate-200/70 space-y-2.5">
+              <div class="flex items-center justify-between">
+                <h4 class="text-[11px] font-bold text-slate-800 flex items-center gap-1.5"><i class="fa-solid fa-layer-group text-blue-600"></i>탐구 심화도</h4>
+                <span id="major-depth-badge" class="px-2 py-0.5 rounded-full text-[9.5px] font-bold bg-blue-100 text-blue-800">진단 중</span>
+              </div>
+              <div class="space-y-2" id="major-depth-content"></div>
+              <div class="pt-1.5 border-t border-slate-200/60">
+                <span class="text-[9.5px] font-semibold text-slate-500">발견된 전공 연계 키워드</span>
+                <div id="major-detected-keywords" class="flex flex-wrap gap-1 mt-1"></div>
+              </div>
+            </div>
+            <div class="lg:col-span-3 bg-amber-50/40 rounded-xl p-3.5 border border-amber-200/60 space-y-2">
+              <h4 class="text-[11px] font-bold text-amber-900 flex items-center gap-1.5"><i class="fa-solid fa-user-tie text-amber-600"></i>전공 확인 질문</h4>
+              <p class="text-[9.5px] text-amber-700/90 leading-snug">전공 이해도를 확인하는 일반 문항입니다. 실제 기출은 면접 대비 화면에 있습니다.</p>
+              <ul id="major-interview-questions" class="space-y-1.5 text-[10.5px] text-slate-700 leading-snug"></ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ── 문장 분석 ── -->
+      <section id="sec-detail" class="scroll-mt-32 space-y-3">
+        <div class="no-print bg-white rounded-xl border border-slate-200 shadow-sm px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-1.5">
+            <div class="flex items-center gap-0.5 bg-slate-100 p-0.5 rounded-lg" role="group" aria-label="학년 필터">
+              <button data-filter-grade="all" class="btn-filter-grade px-2.5 py-1 text-[11px] font-bold rounded-md bg-white text-slate-800 shadow-sm">전체</button>
+              <button data-filter-grade="1" class="btn-filter-grade px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-600 hover:text-slate-900">1학년</button>
+              <button data-filter-grade="2" class="btn-filter-grade px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-600 hover:text-slate-900">2학년</button>
+              <button data-filter-grade="3" class="btn-filter-grade px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-600 hover:text-slate-900">3학년</button>
+            </div>
+            <select id="filter-section" aria-label="영역 필터" class="text-[11px] font-semibold bg-slate-100 border-none rounded-lg px-2.5 py-1.5 text-slate-700 focus:ring-2 focus:ring-indigo-500 cursor-pointer">
+              <option value="all">모든 영역</option>
+              <option value="세특">교과 세특</option>
+              <option value="자율">자율활동</option>
+              <option value="동아리">동아리활동</option>
+              <option value="진로">진로활동</option>
+              <option value="봉사">봉사활동</option>
+              <option value="행특">행동특성</option>
+              <option value="독서">독서활동</option>
+            </select>
+            <label class="flex items-center gap-1.5 text-[11px] font-semibold text-slate-600 bg-slate-100 rounded-lg px-2.5 py-1.5 cursor-pointer">
+              <input type="checkbox" id="filter-lowconf" class="rounded border-slate-300 text-amber-600 focus:ring-amber-500">
+              <span>근거 약한 문장만</span>
+            </label>
+          </div>
+          <div class="relative w-full sm:w-56">
+            <i class="fa-solid fa-magnifying-glass absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-[10px]"></i>
+            <input type="text" id="search-keyword" placeholder="키워드 검색" aria-label="키워드 검색"
+              class="w-full pl-7 pr-2.5 py-1.5 text-[11px] bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-indigo-500 focus:bg-white transition-all">
+          </div>
+        </div>
+
+        <p class="text-[10.5px] text-slate-500 no-print flex flex-wrap items-center gap-x-3 gap-y-1 px-1">
+          <span><i class="fa-solid fa-hand-pointer text-slate-400 mr-1"></i>문장을 드래그하거나 클릭 후 <kbd class="px-1 bg-slate-200 rounded text-[9.5px]">1</kbd><kbd class="px-1 bg-slate-200 rounded text-[9.5px]">2</kbd><kbd class="px-1 bg-slate-200 rounded text-[9.5px]">3</kbd> 키로 역량을 바꿉니다</span>
+          <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-400"></span><strong>노란 점선 = 역량 근거가 약한 서술</strong> — 학생부 보완이 필요한 지점이기도 합니다</span>
+        </p>
+
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden page-break">
+          <div class="grid grid-cols-12 bg-slate-100/80 border-b border-slate-200 text-[11px] font-bold text-slate-700 py-2.5 px-3 text-center">
+            <div class="col-span-1">학년/영역</div>
+            <div class="col-span-3 text-left pl-2">활동 원문</div>
+            <div class="col-span-8 grid grid-cols-3 gap-2">
+              <div class="text-blue-700 flex items-center justify-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-blue-600"></span>학업역량</div>
+              <div class="text-emerald-700 flex items-center justify-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-600"></span>진로역량</div>
+              <div class="text-amber-700 flex items-center justify-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-amber-600"></span>공동체역량</div>
+            </div>
+          </div>
+          <div id="activity-rows-container" class="divide-y divide-slate-100"></div>
+        </div>
+      </section>
+
+      <!-- ── 상담 시트 ── -->
+      <section id="sec-sheet" class="scroll-mt-32">
+        <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3.5 page-break page-break-before">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-clipboard-user text-slate-700"></i>1:1 상담용 요약 시트</h3>
+            <button id="btn-copy-sheet" class="no-print px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all flex items-center gap-1.5">
+              <i class="fa-regular fa-copy"></i><span>텍스트 복사</span>
+            </button>
+          </div>
+          <div id="counsel-sheet" class="text-[11px] leading-relaxed text-slate-700 space-y-3"></div>
+        </div>
+      </section>
+
+      <!-- ── 면접 대비로 넘어가기 ── -->
+      <div id="goto-interview" class="no-print rounded-2xl border-2 border-dashed border-amber-300 bg-amber-50/50 p-5">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div class="min-w-0">
+            <p class="text-[13px] font-black text-slate-900"><i class="fa-solid fa-comments text-amber-600 mr-1.5"></i>면접이 있는 전형인가요?</p>
+            <p class="text-[11px] text-slate-600 leading-relaxed mt-1" id="goto-interview-msg">
+              여기까지가 <strong>서류 진단</strong>입니다. 서류 100% 전형이면 여기서 끝내셔도 됩니다.
+            </p>
+          </div>
+          <button id="btn-goto-interview" class="flex-shrink-0 px-4 py-2.5 bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold rounded-xl shadow-sm transition-all flex items-center gap-2">
+            <span>면접 대비로 넘어가기</span><i class="fa-solid fa-arrow-right"></i>
+          </button>
+        </div>
+      </div>
+
+      <!-- ── 참고자료 (부록) ── -->
+      <details class="no-print bg-white rounded-2xl border border-slate-200 shadow-sm">
+        <summary class="px-5 py-3 cursor-pointer text-[11px] font-bold text-slate-600 hover:text-slate-900 select-none">
+          <i class="fa-solid fa-scale-balanced mr-1.5 text-slate-400"></i>참고 · 전년도 입시결과 좌표
+          <span class="font-normal text-slate-400 ml-1">— 이 도구의 주제는 서류 경쟁력 진단입니다. 지원 판단 자료가 아닙니다.</span>
+        </summary>
+        <div id="peer-panel" class="hidden px-5 pb-5 space-y-3">
+          <p class="text-[10.5px] text-slate-500">전년도 대학 발표 입시결과와의 대조입니다. <span id="peer-src"></span></p>
+          <div class="flex items-center gap-2">
+            <select id="peer-kind" class="text-[11px] font-semibold bg-slate-100 border-none rounded-lg px-2.5 py-1.5 text-slate-700 cursor-pointer">
+              <option value="all">모든 전형</option><option value="교과">학생부교과</option>
+              <option value="종합">학생부종합</option><option value="기타">기타</option>
+            </select>
+            <input type="text" id="peer-search" placeholder="대학·학과 검색" class="w-40 px-2.5 py-1.5 text-[11px] bg-slate-100 border-none rounded-lg focus:ring-2 focus:ring-emerald-500 focus:bg-white">
+          </div>
+          <div class="grid grid-cols-3 gap-2 text-center" id="peer-counts"></div>
+          <div id="peer-rows" class="space-y-1.5 max-h-80 overflow-y-auto pr-1"></div>
+          <p class="text-[9.5px] text-slate-400 leading-relaxed">
+            대학마다 컷 정의가 다릅니다(평균·50%·70%·85%컷). 없는 값은 채우지 않았습니다.
+            전형 방법·수능최저·모집인원 변동이 반영되어 있지 않으므로 합격 예측이 아닙니다.
+          </p>
+        </div>
+      </details>
+
+      <!-- 인쇄 꼬리말 -->
+      <div class="print-only pt-3 mt-3 border-t border-slate-300 text-[8pt] text-slate-500">
+        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.1</span> — 남강고등학교 진로진학부 ·
+        자동 분석 결과이며 서류 경쟁력의 최종 판단은 교사가 합니다.
+      </div>
     </div>
+
+    <!-- ══════════ 면접 대비 화면 (별도) ══════════ -->
+    <div id="interview-view" class="app-view hidden space-y-5">
+
+      <div class="print-only border-b-2 border-slate-900 pb-2 mb-3">
+        <p class="text-[8pt] tracking-widest uppercase">생기부 렌즈 · Record Lens</p>
+        <h1 class="text-[13pt] font-black">학생부종합전형 면접 대비 자료</h1>
+        <p class="text-[8.5pt]" id="print-meta-itv"></p>
+      </div>
+
+      <!-- 액션바 -->
+      <div class="no-print sticky top-[92px] z-20 bg-white/95 backdrop-blur rounded-xl border border-slate-200 shadow-sm px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+        <button id="btn-back-doc2" class="px-2.5 py-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 rounded-lg transition-all flex items-center gap-1.5">
+          <i class="fa-solid fa-arrow-left"></i><span>서류 분석으로</span>
+        </button>
+        <div class="flex items-center gap-1">
+          <button id="btn-print-itv" class="px-2.5 py-1.5 text-[11px] font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-lg transition-all flex items-center gap-1.5" title="이 면접 자료만 인쇄됩니다">
+            <i class="fa-solid fa-print"></i><span>인쇄</span>
+          </button>
+          <button id="btn-pdf-itv" class="px-2.5 py-1.5 text-[11px] font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 border border-rose-200 rounded-lg transition-all flex items-center gap-1.5">
+            <i class="fa-solid fa-file-pdf"></i><span>PDF</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- 머리말 -->
+      <div class="bg-white rounded-2xl border-2 border-amber-200 p-5 shadow-sm page-break">
+        <div class="flex items-start gap-3">
+          <div class="w-9 h-9 rounded-xl bg-amber-600 text-white flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-comments text-sm"></i></div>
+          <div class="min-w-0">
+            <h2 class="text-[15px] font-black text-slate-900">면접 대비</h2>
+            <p class="text-[11.5px] text-slate-600 leading-relaxed mt-1" id="itv-intro">
+              학종 면접은 새로운 것을 묻지 않습니다. <strong class="text-slate-800">서류에 적힌 것을 확인</strong>합니다.
+              그래서 이 화면의 모든 문항은 앞서 분석한 이 학생의 생활기록부에서 출발합니다.
+            </p>
+            <div class="mt-2.5 rounded-lg bg-amber-50/70 border border-amber-200/70 px-3 py-2">
+              <p class="text-[11px] font-bold text-amber-900">모범답안을 주지 않습니다</p>
+              <p class="text-[10.5px] text-amber-800/90 leading-relaxed mt-0.5">
+                외운 답은 꼬리 질문에서 무너집니다. 면접관이 확인하는 것은 학생부에 적힌 <strong>본인의 경험</strong>입니다.
+                답을 써주는 대신, 그 질문에 쓸 근거가 학생부 어디에 있는지 찾아 드립니다.
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-4">
+        <!-- 답변 설계 틀 -->
+        <section id="sec-itv-frame" class="lg:col-span-4 scroll-mt-32 space-y-3">
+          <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 page-break">
+            <p class="kicker text-slate-400">답변 설계 틀</p>
+            <ol class="mt-2 space-y-2 text-[11px] text-slate-700">
+              <li class="flex gap-2"><span class="w-4 h-4 rounded bg-slate-800 text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">상</span><span><strong>상황</strong> — 어떤 수업·활동이었는지 한 문장</span></li>
+              <li class="flex gap-2"><span class="w-4 h-4 rounded bg-slate-800 text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">행</span><span><strong>행동</strong> — 내가 한 판단과 시도. 여기가 핵심</span></li>
+              <li class="flex gap-2"><span class="w-4 h-4 rounded bg-slate-800 text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">결</span><span><strong>결과</strong> — 무엇이 달라졌나. 실패도 결과다</span></li>
+              <li class="flex gap-2"><span class="w-4 h-4 rounded bg-slate-800 text-white text-[9px] font-black flex items-center justify-center flex-shrink-0 mt-0.5">성</span><span><strong>성찰</strong> — 전공과 어떻게 이어지나</span></li>
+            </ol>
+          </div>
+          <div id="interview-gap" class="hidden bg-rose-50/60 rounded-2xl p-4 border border-rose-200/70 page-break"></div>
+          <div id="itv-anchor" class="bg-white rounded-2xl border border-slate-200 shadow-sm p-4 page-break"></div>
+        </section>
+
+        <div class="lg:col-span-8 space-y-4">
+          <!-- 공통 문항 -->
+          <section id="sec-itv-common" class="scroll-mt-32">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3 page-break">
+              <div class="flex items-center justify-between border-b border-slate-100 pb-2.5">
+                <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-star text-amber-500"></i>공통 문항 — 어느 대학이든 나옵니다</h3>
+                <span class="text-[9.5px] text-slate-400">자기소개 · 지원동기 · 활동 확인</span>
+              </div>
+              <p class="text-[10.5px] text-slate-500 leading-relaxed">
+                자기소개, 지원동기, 본인 활동 확인은 대학을 가리지 않습니다.
+                아래는 이 학생의 생기부에서 실제로 뽑은 근거를 붙여 둔 것입니다.
+              </p>
+              <div id="itv-common-rows" class="space-y-2"></div>
+            </div>
+          </section>
+
+          <!-- 기출 연결 -->
+          <section id="sec-itv-exam" class="scroll-mt-32">
+            <div class="bg-white rounded-2xl border border-slate-200 shadow-sm p-5 space-y-3 page-break">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-2.5">
+                <div>
+                  <h3 class="text-sm font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-quote-left text-amber-600"></i>대학 공시 기출과의 연결</h3>
+                  <p class="text-[10px] text-slate-500 mt-0.5">선행학습 영향평가 보고서에 실린 <strong>실제 출제 문항</strong>입니다. 생성한 문항이 아닙니다.</p>
+                </div>
+                <span class="text-[9.5px] text-slate-400 flex-shrink-0" id="interview-note"></span>
+              </div>
+              <div id="itv-proxy" class="hidden rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-3"></div>
+              <div id="interview-rows" class="space-y-2 max-h-[560px] overflow-y-auto pr-1"></div>
+              <p class="text-[9.5px] text-slate-400 leading-relaxed border-t border-slate-100 pt-2">
+                공개 범위는 대학마다 다릅니다. 지원 대학의 자료가 없으면 비슷한 수준의 다른 대학 기출로 대신 보여드립니다.
+                학과가 다르면 소재보다 <strong>묻는 방식</strong>에 주목하세요.
+              </p>
+            </div>
+          </section>
+        </div>
+      </div>
+
+      <div class="print-only pt-3 mt-3 border-t border-slate-300 text-[8pt] text-slate-500">
+        생기부 렌즈 · Record Lens <span data-app-version>ver.2027.1</span> — 남강고등학교 진로진학부 ·
+        실제 출제 문항이며 답변은 학생 본인의 경험에서 나와야 합니다.
+      </div>
+    </div>
+
   </main>
 
-  <div id="custom-dialog" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl space-y-4 border border-slate-100 transform transition-all scale-95 opacity-0 duration-200" id="dialog-box">
-      <div class="flex items-start space-x-3.5">
-        <div id="dialog-icon-wrapper" class="w-10 h-10 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
-          <i id="dialog-icon" class="fa-solid fa-circle-info text-lg"></i>
+  <!-- ══════════ 푸터 ══════════ -->
+  <footer class="no-print bg-white border-t border-slate-200 mt-10">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div>
+        <p class="text-xs font-bold text-slate-800">
+          생기부 렌즈 · Record Lens
+          <span class="ml-1.5 px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 text-[10px] font-semibold" data-app-version>ver.2027.1</span>
+        </p>
+        <p class="text-[11px] text-slate-500 mt-1">
+          만든이 <strong class="text-slate-700">남강고등학교 진로진학부</strong>
+          <span class="text-slate-300 mx-1">·</span>
+          <span class="text-slate-400">© 2026, 교육 목적 사용 자유</span>
+        </p>
+      </div>
+      <div class="flex items-center gap-3 text-[11px]">
+        <button id="link-help2" class="text-slate-500 hover:text-indigo-700 underline underline-offset-2">사용법</button>
+        <button id="link-privacy2" class="text-slate-500 hover:text-indigo-700 underline underline-offset-2">개인정보 · 유의사항</button>
+        <button id="link-caveat2" class="text-slate-500 hover:text-indigo-700 underline underline-offset-2">알려진 한계</button>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ══════════ 안내 모달 ══════════ -->
+  <div id="info-modal" class="app-modal fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 hidden items-center justify-center p-4 no-print" role="dialog" aria-modal="true" aria-labelledby="info-title">
+    <div class="bg-white rounded-2xl max-w-2xl w-full max-h-[82vh] overflow-y-auto shadow-2xl">
+      <div class="sticky top-0 bg-white border-b border-slate-100 px-5 py-3.5 flex items-center justify-between">
+        <h3 id="info-title" class="text-sm font-bold text-slate-900">안내</h3>
+        <button id="info-close" class="w-7 h-7 rounded-lg text-slate-400 hover:bg-slate-100" aria-label="닫기"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div id="info-body" class="px-5 py-4 text-[12px] text-slate-700 leading-relaxed space-y-4"></div>
+    </div>
+  </div>
+
+  <div id="custom-dialog" class="app-modal fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print" role="dialog" aria-modal="true" aria-labelledby="dialog-title">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 shadow-2xl space-y-3.5 transform transition-all scale-95 opacity-0 duration-200" id="dialog-box">
+      <div class="flex items-start gap-3">
+        <div id="dialog-icon-wrapper" class="w-9 h-9 rounded-xl bg-blue-100 text-blue-600 flex items-center justify-center flex-shrink-0">
+          <i id="dialog-icon" class="fa-solid fa-circle-info"></i>
         </div>
         <div class="space-y-1">
-          <h4 id="dialog-title" class="text-base font-bold text-slate-900">알림</h4>
-          <p id="dialog-message" class="text-xs text-slate-600 leading-relaxed"></p>
+          <h4 id="dialog-title" class="text-sm font-bold text-slate-900">알림</h4>
+          <p id="dialog-message" class="text-[11.5px] text-slate-600 leading-relaxed"></p>
         </div>
       </div>
-      <div class="flex justify-end space-x-2 pt-2">
-        <button id="dialog-btn-ocr" class="hidden px-3.5 py-2 text-xs font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-xl transition-all"><i class="fa-solid fa-eye mr-1"></i>스캔본 OCR로 읽기</button>
-        <button id="dialog-btn-paste" class="hidden px-3.5 py-2 text-xs font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-xl transition-all"><i class="fa-solid fa-paste mr-1"></i>텍스트 직접 붙여넣기</button>
-        <button id="dialog-btn-confirm" class="px-5 py-2 text-xs font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-xl transition-all">확인</button>
+      <div class="flex justify-end gap-2 pt-1">
+        <button id="dialog-btn-ocr" class="hidden px-3 py-1.5 text-[11px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 hover:bg-indigo-100 rounded-lg"><i class="fa-solid fa-eye mr-1"></i>OCR로 읽기</button>
+        <button id="dialog-btn-paste" class="hidden px-3 py-1.5 text-[11px] font-bold text-blue-700 bg-blue-50 border border-blue-200 hover:bg-blue-100 rounded-lg"><i class="fa-solid fa-paste mr-1"></i>붙여넣기</button>
+        <button id="dialog-btn-confirm" class="px-4 py-1.5 text-[11px] font-bold text-white bg-slate-900 hover:bg-slate-800 rounded-lg">확인</button>
       </div>
     </div>
   </div>
 
   <div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 hidden no-print" aria-live="polite">
-    <div class="bg-slate-900 text-white text-xs font-semibold px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+    <div class="bg-slate-900 text-white text-[11px] font-semibold px-4 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
       <i class="fa-solid fa-circle-check text-emerald-400"></i><span id="toast-msg"></span>
     </div>
   </div>
 
-  <footer class="bg-white border-t border-slate-200 py-6 mt-12 text-center text-xs text-slate-400 no-print">
-    <p>© 2026/2027 생활기록부 역량 흐름 분석기 · <span data-app-version>ver.2026.6</span> · All analysis is performed strictly in client-side memory.</p>
-  </footer>
+  <script>
 
-<script>
 "use strict";
 /* =========================================================================
    생활기록부 역량 흐름 분석기
@@ -553,7 +899,7 @@
 const App = (() => {
 
 /* ---------------------------------------------------------------- CONST */
-const VERSION = "2026.6";
+const VERSION = "2027.1";
 /** 이 값 미만이면 "교사 재검토 권장"으로 표시한다. 학업/진로 경계 문장을 놓치지 않기 위한 안전망. */
 const CONF_LOW = 0.60;
 
@@ -1189,6 +1535,8 @@ const state = {
   sourceFormat: "",
   transcript: { courses: [], gpa: null, zsum: null },
   admissions: null,          // data/admissions.json (없으면 null)
+  criteria: null,            // data/criteria.json — 대학별 서류 평가요소 비중
+  exams: null,               // data/exams.json — 대학 공시 면접 기출
   peerFilter: { kind: "all", q: "" },
   filter: { grade: "all", section: "all", search: "", lowConfOnly: false },
   stats: null,
@@ -1487,6 +1835,9 @@ const Render = {
     Render.consulting();
     Render.counselSheet();
     Render.majorDiagnostic();
+    if (Render.linkage) Render.linkage();
+    if (Render.criteriaPanel) Render.criteriaPanel();
+    if (Views.cur === "itv" && Render.interviewAll) Render.interviewAll();
   },
 
   summary() {
@@ -1520,7 +1871,8 @@ const Render = {
     if (pm) {
       pm.textContent = (state.student.name || "학생") + " · " + (state.student.school || "") +
         " · 총 " + st.total + "문장 / " + state.activities.length + "활동 · 출력일 " + new Date().toLocaleDateString("ko-KR") +
-        " · 교사 수정 " + st.edited + "건";
+        " · 교사 수정 " + st.edited + "건" +
+        (state.fileName ? " · 원본 " + state.fileName : "");
     }
   },
 
@@ -1863,7 +2215,14 @@ const Render = {
         }).join("") + '</ul></div>';
     }).join("");
 
-    const missing = major.requiredCourses.filter(function (c) { return !Render._fullText().includes(c); });
+    const _cl = (state.transcript && state.transcript.courses) || [];
+    const missing = major.requiredCourses.filter(function (c) {
+      if (_cl.length) {
+        for (let i = 0; i < _cl.length; i++) if (courseMatches(c, _cl[i].name)) return false;
+        return true;
+      }
+      return normCourse(Render._fullText()).indexOf(normCourse(c)) < 0;
+    });
 
     $("counsel-sheet").innerHTML =
       '<div class="grid grid-cols-1 md:grid-cols-3 gap-3 text-[11px]">' +
@@ -1875,7 +2234,23 @@ const Render = {
           '<p class="text-slate-500 mt-1">' + (missing.length ? '미확인 핵심과목: ' + esc(missing.join(", ")) : '핵심 권장과목 이수 확인 완료') + '</p></div>' +
         '<div class="bg-slate-50 rounded-lg p-3 border border-slate-200"><p class="font-bold text-slate-800 mb-1">상담 시 확인할 것</p>' +
           '<p class="text-slate-600">' + esc(major.interviewQuestions[0]) + '</p></div>' +
-      '</div>' + gradeBlocks;
+      '</div>' + Render._critLine() + gradeBlocks;
+  },
+
+  _critLine() {
+    if (!state.criteria || !window.Criteria) return "";
+    const cr = Criteria.current();
+    if (!cr || !cr.row) return "";
+    const w = cr.rows.filter(function (e) { return e.verdict === "보완 필요"; })
+                     .sort(function (a, b) { return (b.w || 0) - (a.w || 0); })[0];
+    return '<div class="rounded-lg border border-indigo-200 bg-indigo-50/50 p-3 text-[11px]">' +
+      '<p class="font-bold text-indigo-900 mb-0.5">지원 전형 대조 — ' + esc(cr.want) + ' · ' + esc(cr.row.track) +
+      ' (' + (cr.row.stage === "서류100" ? "서류 100%" : "서류+면접") + ')</p>' +
+      '<p class="text-indigo-900/90">' + cr.rows.map(function (e) {
+        return esc(e.name) + " " + (e.w === null ? "?" : e.w + "%") + " ← 근거 " + e.supply.toFixed(0) + "%";
+      }).join(" / ") + '</p>' +
+      (w ? '<p class="text-rose-800 mt-0.5">비중이 큰 <strong>' + esc(w.name) + '</strong>의 근거가 얇습니다. 상담에서 먼저 확인하세요.</p>' : "") +
+      '</div>';
   },
 
   _fullText() {
@@ -2131,8 +2506,9 @@ const UI = {
 
     UI.progress(false);
     $("upload-hub").classList.add("hidden");
-    $("result-dashboard").classList.remove("hidden");
     $("btn-reset-all").classList.remove("hidden");
+    Nav.show(true);
+    Views.go("doc");
 
     Render.all();
     $("btn-undo").disabled = true;
@@ -2322,14 +2698,18 @@ const UI = {
     state.student = { name: "", school: "" }; state.history = []; state.selectedSentId = null;
     $("upload-hub").classList.remove("hidden");
     $("result-dashboard").classList.add("hidden");
+    $("result-dashboard").classList.remove("is-active");
+    $("interview-view").classList.add("hidden");
+    $("interview-view").classList.remove("is-active");
     $("btn-reset-all").classList.add("hidden");
+    Nav.show(false);
     $("pdf-file-input").value = "";
     $("direct-text-input").value = "";
     window.scrollTo({ top: 0, behavior: "smooth" });
   },
 
   loadSample() {
-    UI.process(SAMPLE_TEXT, "2027학년도_기계공학_우수_학생부_샘플.pdf");
+    UI.process(SAMPLE_TEXT, "샘플_기계공학_희망학생.pdf");
     toast("샘플 학생부를 불러왔습니다.");
   },
 
@@ -2341,14 +2721,17 @@ const UI = {
     sel.innerHTML = Object.keys(MAJORS).map(function (k) {
       return '<option value="' + k + '">' + esc(MAJORS[k].name) + '</option>';
     }).join("");
-    sel.addEventListener("change", function () { Render.majorDiagnostic(); Render.counselSheet(); });
+    sel.addEventListener("change", function () {
+      Render.majorDiagnostic(); Render.counselSheet();
+      if (Views.cur === "itv") Render.interviewAll();
+    });
 
     // 탭
     const tp = $("tab-btn-pdf"), tt = $("tab-btn-text");
-    const ACTIVE = "px-4 py-2 text-sm font-bold rounded-xl bg-white shadow-sm border border-slate-200/70 transition-all flex items-center space-x-2";
-    const IDLE   = "px-4 py-2 text-sm font-semibold rounded-xl text-slate-600 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center space-x-2";
+    const ACTIVE = "px-3.5 py-1.5 text-xs font-bold rounded-lg bg-white shadow-sm border border-slate-200 transition-all flex items-center gap-1.5";
+    const IDLE   = "px-3.5 py-1.5 text-xs font-semibold rounded-lg text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all flex items-center gap-1.5";
     tp.addEventListener("click", function () {
-      tp.className = ACTIVE + " text-blue-600"; tt.className = IDLE;
+      tp.className = ACTIVE + " text-indigo-700"; tt.className = IDLE;
       tp.setAttribute("aria-selected", "true"); tt.setAttribute("aria-selected", "false");
       $("tab-pane-pdf").classList.remove("hidden"); $("tab-pane-text").classList.add("hidden");
     });
@@ -2381,6 +2764,43 @@ const UI = {
     $("btn-export-csv").addEventListener("click", Export.csv);
     $("btn-copy-sheet").addEventListener("click", Export.copySheet);
     $("btn-print").addEventListener("click", function () { window.print(); });
+    $("btn-print-itv").addEventListener("click", function () { window.print(); });
+    $("btn-export-xls").addEventListener("click", function () { Export.xls(); });
+    $("btn-export-pdf").addEventListener("click", function () { Export.pdf(); });
+    $("btn-pdf-itv").addEventListener("click", function () { Export.pdf(); });
+    $("btn-mail").addEventListener("click", function () { Export.mail(); });
+    $("btn-top").addEventListener("click", function () { window.scrollTo({ top: 0, behavior: "smooth" }); });
+
+    // 화면 전환
+    $("btn-goto-interview").addEventListener("click", function () { Views.go("itv"); });
+    $("btn-back-doc").addEventListener("click", function () { Views.go("doc"); });
+    $("btn-back-doc2").addEventListener("click", function () { Views.go("doc"); });
+
+    // 안내 모달
+    $("btn-help").addEventListener("click", function () { Info.open("help"); });
+    $("btn-privacy").addEventListener("click", function () { Info.open("privacy"); });
+    $("link-help2").addEventListener("click", function () { Info.open("help"); });
+    $("link-privacy2").addEventListener("click", function () { Info.open("privacy"); });
+    $("link-caveat2").addEventListener("click", function () { Info.open("caveat"); });
+    $("link-privacy").addEventListener("click", function () { Info.open("privacy"); });
+    $("link-caveat").addEventListener("click", function () { Info.open("caveat"); });
+    $("info-close").addEventListener("click", Info.close);
+    $("info-modal").addEventListener("click", function (e) { if (e.target === $("info-modal")) Info.close(); });
+
+    Nav.init();
+
+    // 대학 · 전형 선택
+    $("sel-univ").addEventListener("change", function () {
+      Criteria.fillSelects();
+      Render.criteriaPanel();
+      Render.counselSheet();
+      if (Views.cur === "itv") Render.interviewAll();
+    });
+    $("sel-track").addEventListener("change", function () {
+      Render.criteriaPanel();
+      Render.counselSheet();
+      if (Views.cur === "itv") Render.interviewAll();
+    });
     $("btn-undo").addEventListener("click", UI.undo);
     $("dialog-btn-confirm").addEventListener("click", UI.closeDialog);
 
@@ -2388,9 +2808,9 @@ const UI = {
     $$(".btn-filter-grade").forEach(function (btn) {
       btn.addEventListener("click", function () {
         $$(".btn-filter-grade").forEach(function (b) {
-          b.className = "btn-filter-grade px-3 py-1.5 text-xs font-medium rounded-lg text-slate-600 hover:text-slate-900";
+          b.className = "btn-filter-grade px-2.5 py-1 text-[11px] font-medium rounded-md text-slate-600 hover:text-slate-900";
         });
-        btn.className = "btn-filter-grade px-3 py-1.5 text-xs font-bold rounded-lg bg-white text-slate-800 shadow-sm";
+        btn.className = "btn-filter-grade px-2.5 py-1 text-[11px] font-bold rounded-md bg-white text-slate-800 shadow-sm";
         state.filter.grade = btn.dataset.filterGrade;
         Render.table();
       });
@@ -2410,7 +2830,7 @@ const UI = {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "z") {
         if (!$("result-dashboard").classList.contains("hidden")) { e.preventDefault(); UI.undo(); }
       }
-      if (e.key === "Escape") UI.closeDialog();
+      if (e.key === "Escape") { UI.closeDialog(); Info.close(); }
     });
 
     // 입시결과 데이터는 있으면 쓰고 없으면 조용히 넘어간다.
@@ -2423,6 +2843,29 @@ const UI = {
         if (!$("result-dashboard").classList.contains("hidden")) Render.peerPanel();
       })
       .catch(function () { /* 데이터 없이도 앱은 완전히 동작한다 */ });
+
+    // 대학별 서류 평가요소 비중. 이 앱의 핵심 자료지만, 없어도 3역량 분석은 그대로 된다.
+    fetch("data/criteria.json", { cache: "no-cache" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.rows) return;
+        state.criteria = j;
+        Criteria.fillSelects();
+        if (!$("result-dashboard").classList.contains("hidden")) {
+          Render.criteriaPanel(); Render.counselSheet();
+        }
+      })
+      .catch(function () { /* 없으면 표준 3역량으로만 본다 */ });
+
+    // 대학 공시 면접 기출.
+    fetch("data/exams.json", { cache: "no-cache" })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (j) {
+        if (!j || !j.rows) return;
+        state.exams = j;
+        if (Views.cur === "itv") Render.interviewAll();
+      })
+      .catch(function () { /* 기출 없이도 공통 문항은 나온다 */ });
 
     $("peer-kind").addEventListener("change", function (e) { state.peerFilter.kind = e.target.value; Render.peerPanel(); });
     let peerTimer = null;
@@ -2463,11 +2906,1058 @@ const SAMPLE_TEXT = [
   "매사 지적 호기심이 뛰어나며 어려운 기계역학 문제에 직면했을 때 포기하지 않고 끈기 있게 파고드는 자기주도적 학업 태도를 지님. 타인을 배려하고 학급의 궂은일에 앞장서는 모범적인 학생임."
 ].join("\n");
 
+/* ================================================================ 내보내기 확장 */
+
+/** 엑셀에서 바로 열리는 표. 라이브러리 없이 HTML 표를 .xls로 넘긴다. */
+Export.xls = function () {
+  if (!state.activities.length) return;
+  const st = state.stats, t = state.transcript;
+  const e2 = function (v) { return esc(v === null || v === undefined ? "" : v); };
+  const h = [];
+  h.push('<meta charset="utf-8"><style>td,th{border:1px solid #ccc;padding:4px;font-size:11px}th{background:#eef2ff;font-weight:700}</style>');
+
+  h.push('<table><tr><th colspan="8">생기부 렌즈 · 학생부종합전형 서류 경쟁력 진단</th></tr>');
+  h.push('<tr><td>대상</td><td colspan="7">' + e2(state.student.name) + ' ' + e2(state.student.school) + '</td></tr>');
+  h.push('<tr><td>출력일</td><td colspan="7">' + new Date().toLocaleString("ko-KR") + '</td></tr>');
+  h.push('<tr><td>역량 분포</td><td colspan="7">학업 ' + Stats.pct(st.byCat.ac, st.total) + '% / 진로 ' +
+         Stats.pct(st.byCat.ca, st.total) + '% / 공동체 ' + Stats.pct(st.byCat.co, st.total) +
+         '% (총 ' + st.total + '문장, 교사수정 ' + st.edited + '건)</td></tr></table><br>');
+
+  // 선택한 전형 기준 진단
+  const cr = Criteria.current();
+  if (cr && cr.row) {
+    h.push('<table><tr><th colspan="5">' + e2(cr.shownAs) + ' 기준 대조' +
+           (cr.proxy ? ' (참고 기준 — ' + e2(cr.row.u) + ' 자료로 대신함)' : '') + '</th></tr>');
+    h.push('<tr><th>평가요소</th><th>대학 반영비율</th><th>학생 근거 비중</th><th>차이</th><th>판단</th></tr>');
+    cr.rows.forEach(function (r) {
+      h.push('<tr><td>' + e2(r.name) + '</td><td>' + (r.w === null ? "확인 필요" : r.w + '%') +
+             '</td><td>' + r.supply.toFixed(0) + '%</td><td>' + (r.gap === null ? "-" : (r.gap > 0 ? "+" : "") + r.gap.toFixed(0) + "%p") +
+             '</td><td>' + e2(r.verdict) + '</td></tr>');
+    });
+    h.push('</table><br>');
+  }
+
+  h.push('<table><tr><th>학년</th><th>영역</th><th>활동명</th><th>문장</th><th>역량</th><th>세부항목</th><th>신뢰도</th><th>교사수정</th></tr>');
+  state.activities.forEach(function (a) {
+    a.sentences.forEach(function (s) {
+      h.push('<tr><td>' + e2(a.grade) + '학년</td><td>' + e2(a.section) + '</td><td>' + e2(a.title) +
+             '</td><td>' + e2(s.text) + '</td><td>' + TAXONOMY[s.cat].label +
+             '</td><td>' + (s.sub ? TAXONOMY[s.cat].subs[s.sub] : "역량 근거 약함") +
+             '</td><td>' + Math.round(s.conf * 100) + '%</td><td>' + (s.edited ? "수정" : "") + '</td></tr>');
+    });
+  });
+  h.push('</table>');
+
+  if (t && t.courses.length) {
+    h.push('<br><table><tr><th>학년</th><th>교과</th><th>과목</th><th>1학기 단위</th><th>1학기 원점수</th><th>1학기 평균</th><th>1학기 등급</th><th>2학기 등급</th></tr>');
+    t.courses.forEach(function (c) {
+      h.push('<tr><td>' + e2(c.grade) + '</td><td>' + e2(c.area) + '</td><td>' + e2(c.name) +
+             '</td><td>' + e2(c.s1.units) + '</td><td>' + e2(c.s1.score) + '</td><td>' + e2(c.s1.mean) +
+             '</td><td>' + e2(c.s1.rank) + '</td><td>' + e2(c.s2.rank) + '</td></tr>');
+    });
+    h.push('</table>');
+  }
+
+  Export._download("﻿" + h.join(""), "application/vnd.ms-excel;charset=utf-8;",
+    "생기부렌즈_" + (state.student.name || "결과") + ".xls");
+  toast("엑셀 파일을 내려받았습니다.");
+};
+
+/** PDF는 브라우저 인쇄의 'PDF로 저장'을 쓴다. 인쇄 범위와 정확히 같아진다. */
+Export.pdf = function () {
+  toast("인쇄 창에서 '대상'을 'PDF로 저장'으로 바꿔 주세요.");
+  setTimeout(function () { window.print(); }, 700);
+};
+
+/** 요약을 기본 메일 앱 본문으로 연다. 외부로 전송하지 않는다. */
+Export.mail = function () {
+  const name = state.student.name || "학생";
+  const body = Export.sheetText() +
+    "\n\n---\n생기부 렌즈 · Record Lens (남강고등학교 진로진학부)\n" +
+    "본 요약은 자동 분석 결과이며 서류 경쟁력의 최종 판단은 교사가 합니다.\n" +
+    "상세 결과는 CSV·엑셀·PDF로 내려받아 첨부하세요.";
+  const url = "mailto:?subject=" + encodeURIComponent("[생기부 서류 진단] " + name) +
+              "&body=" + encodeURIComponent(body);
+  if (url.length > 6000) {
+    UI.dialog({ title: "메일 본문이 너무 깁니다",
+      message: "요약이 길어 메일 앱이 잘라낼 수 있습니다. <strong>텍스트 복사</strong> 후 붙여넣거나, CSV·PDF로 내려받아 첨부해 주세요.",
+      type: "warning" });
+    return;
+  }
+  UI.dialog({ title: "메일 앱을 엽니다",
+    message: "요약 시트가 <strong>본문</strong>에 채워진 채로 기본 메일 앱이 열립니다. 인터넷으로 전송되는 것은 없습니다.<br><br>" +
+             "학생 이름이 포함되므로 <strong>수신자를 반드시 확인</strong>하시고, 개인정보가 담긴 메일은 학교 계정으로만 보내주세요.",
+    type: "warning" });
+  setTimeout(function () { window.location.href = url; }, 400);
+};
+
+/* ================================================================ 화면 전환 */
+const Views = {
+  cur: "doc",
+  go(which) {
+    Views.cur = which;
+    const doc = $("result-dashboard"), itv = $("interview-view");
+    doc.classList.toggle("hidden", which !== "doc");
+    doc.classList.toggle("is-active", which === "doc");
+    itv.classList.toggle("hidden", which !== "itv");
+    itv.classList.toggle("is-active", which === "itv");
+    $("nav-doc").classList.toggle("hidden", which !== "doc");
+    $("nav-doc").classList.toggle("flex", which === "doc");
+    $("nav-itv").classList.toggle("hidden", which !== "itv");
+    $("nav-itv").classList.toggle("flex", which === "itv");
+    if (which === "itv") Render.interviewAll();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+};
+
+/* ================================================================ 안내 */
+const Info = {
+  help: {
+    title: "사용법",
+    html:
+      '<div class="space-y-3">' +
+      '<div class="bg-indigo-50 border border-indigo-200 rounded-lg p-3">' +
+      '<p class="font-bold text-indigo-900 mb-1">이 도구가 답하는 질문</p>' +
+      '<p class="text-indigo-900/90">"이 학생의 생활기록부는 <strong>그 대학의 서류평가에서</strong> 어떻게 읽힐까?"</p>' +
+      '<p class="text-indigo-800/80 mt-1">학종은 서류 100% 또는 서류+면접으로 뽑고, 서류 평가요소의 비중은 대학마다 다릅니다. ' +
+      '진로역량 50%인 대학과 학업역량 50%인 대학에서 같은 학생부가 다르게 읽힙니다. 그 차이를 드러내는 것이 이 도구의 일입니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">1. 파일 올리기</p>' +
+      '<p>톡톡스쿨에서 내려받은 <strong>학생부현황</strong> PDF를 권합니다. 이수 과목·원점수·평균·표준편차가 들어 있어 성적 분석까지 됩니다. ' +
+      '나이스 생기부II는 한컴 PDF로 출력되면 이미지 스캔본이 되어 글자가 거의 추출되지 않습니다. 그때는 OCR이나 텍스트 붙여넣기를 쓰세요.</p></div>' +
+      '<div><p class="font-bold text-slate-900">2. 대학·전형 고르기</p>' +
+      '<p>서류 경쟁력 진단에서 지원하려는 대학과 전형을 고르면, 그 대학이 공시한 <strong>실제 평가요소 비중</strong>으로 다시 계산합니다. ' +
+      '공시 자료가 없는 대학은 비슷한 수준 대학의 기준을 참고용으로 대신 보여주고, 그 사실을 화면에 적습니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">3. 분류 다듬기</p>' +
+      '<p>문장은 학종 공통 평가요소 3역량 10항목으로 자동 배분됩니다. 애매한 문장은 노란 점선으로 표시됩니다. ' +
+      '문장을 드래그하거나 클릭 후 <kbd class="px-1 bg-slate-100 rounded">1</kbd>(학업) <kbd class="px-1 bg-slate-100 rounded">2</kbd>(진로) <kbd class="px-1 bg-slate-100 rounded">3</kbd>(공동체) 키로 바꿉니다. ' +
+      '<kbd class="px-1 bg-slate-100 rounded">Ctrl+Z</kbd>로 되돌립니다. <strong>분류를 다듬으면 서류 경쟁력 진단도 함께 다시 계산됩니다.</strong></p></div>' +
+      '<div><p class="font-bold text-slate-900">4. 내보내기 · 면접</p>' +
+      '<p><strong>CSV</strong> 문장별 원자료 · <strong>엑셀</strong> 성적표와 전형별 대조까지 · <strong>PDF/인쇄</strong> 지금 보는 결과 화면만 · <strong>메일</strong> 요약을 본문에 채워 메일 앱 열기.<br>' +
+      '면접이 있는 전형이면 맨 아래 <strong>면접 대비로 넘어가기</strong> 버튼으로 별도 화면으로 이어집니다. 서류 100% 전형이면 서류 진단에서 끝내면 됩니다.</p></div>' +
+      '<div class="bg-slate-50 rounded-lg p-3 border border-slate-200">' +
+      '<p class="font-bold text-slate-900 mb-1">읽는 법 한 가지</p>' +
+      '<p>등급은 9단계로 뭉갭니다. 같은 3등급이어도 교내 상위 7%와 24%는 다른 학생입니다. ' +
+      '원점수·평균·표준편차가 있으면 표준화 점수(z)로 그 차이를 드러냅니다. 전 과목 z와 수학·과학 z를 비교하면 계열 강점이 보입니다.</p></div>' +
+      '</div>'
+  },
+  privacy: {
+    title: "개인정보 처리 · 유의사항",
+    html:
+      '<div class="space-y-3">' +
+      '<div class="bg-emerald-50 border border-emerald-200 rounded-lg p-3">' +
+      '<p class="font-bold text-emerald-900">학생 자료는 이 브라우저를 떠나지 않습니다</p>' +
+      '<p class="text-emerald-800">서버로 올리지 않고, 데이터베이스에 넣지 않으며, 어디에도 저장하지 않습니다. ' +
+      '업로드한 PDF는 브라우저 메모리에서만 해석되고 <strong>새로고침하거나 창을 닫으면 즉시 사라집니다.</strong> ' +
+      '저장 기능을 일부러 만들지 않았습니다. 그래서 결과는 반드시 내려받거나 인쇄해 두셔야 합니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">AI API 키를 두지 않은 이유</p>' +
+      '<p>공개 웹페이지에 API 키를 넣으면 키가 노출되고, 학생 기록이 외부 모델로 전송됩니다. 위 원칙과 양립할 수 없습니다. ' +
+      '그래서 이 도구는 문항을 <strong>생성하지 않고 선별</strong>합니다 — 대학이 공시한 실제 기출을 색인해 두고 학생부와 대조할 뿐입니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">외부로 나가는 것</p>' +
+      '<p>화면을 그리는 데 필요한 라이브러리(Tailwind·pdf.js·Tesseract·아이콘)만 공개 CDN에서 받아옵니다. ' +
+      '학생 자료가 그 요청에 실리는 일은 없습니다. 학교망에서 CDN이 막혀도 페이지 자체는 뜨도록 만들었습니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">교사가 지켜야 할 것</p>' +
+      '<ul class="list-disc pl-5 space-y-0.5">' +
+      '<li>공용 PC에서 쓴 뒤에는 반드시 브라우저를 닫으세요.</li>' +
+      '<li>내려받은 CSV·엑셀·PDF에는 <strong>학생 실명이 들어갑니다.</strong> 개인 클라우드나 메신저로 옮기지 마세요.</li>' +
+      '<li>메일 보내기는 학생 이름이 본문에 들어갑니다. 수신자를 확인하고 학교 계정만 쓰세요.</li>' +
+      '<li>출력물은 상담 후 파기하거나 학교 규정에 따라 관리하세요.</li></ul></div>' +
+      '<div><p class="font-bold text-slate-900">이 도구의 자리</p>' +
+      '<p>자동 분석은 <strong>보조</strong>입니다. 합격을 예측하지 않고, 지원 여부를 판단하지 않으며, 학생을 평가하지 않습니다. ' +
+      '생기부를 분해해 대학별 평가요소에 대조해 놓을 뿐이고, <strong>서류 경쟁력의 최종 판단은 교사가 합니다.</strong></p></div>' +
+      '</div>'
+  },
+  caveat: {
+    title: "알려진 한계 · 오류 가능성",
+    html:
+      '<div class="space-y-3">' +
+      '<div><p class="font-bold text-slate-900">평가요소 비중은 공시 자료를 옮긴 값입니다</p>' +
+      '<p>각 대학 2027 학생부종합전형 가이드북의 표를 그대로 옮겼습니다. 확인하지 못한 비중은 추정하지 않고 "확인 필요"로 둡니다. ' +
+      '전형은 해마다 바뀌므로 <strong>최종 확인은 반드시 해당 대학 수시모집요강으로 하십시오.</strong> ' +
+      '공시 자료가 없는 대학은 비슷한 수준 대학의 기준으로 대신 보여주며, 그 사실을 화면에 표시합니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">근거 두께는 자동 분류 결과입니다</p>' +
+      '<p>문장을 이해하는 것이 아니라 규칙으로 판별합니다. 실제 생기부 300문장 기준 약 <strong>63%</strong>가 규칙에 걸리고 나머지는 근거가 약한 것으로 표시됩니다. ' +
+      '다만 그 상당수는 실제로 평가 근거가 희박한 서술("책을 읽고 생각하는 시간을 가짐")이라, 그 자체가 <strong>학생부 보완이 필요한 지점</strong>을 알려주는 지표이기도 합니다. ' +
+      '문장 분석에서 분류를 다듬으면 진단도 함께 바뀝니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">학업역량과 진로역량의 경계</p>' +
+      '<p>"벡터의 내적으로 로봇 회전각을 계산함" 같은 문장은 원리적으로 한쪽으로 확정할 수 없습니다. ' +
+      '그래서 확정하는 척하지 않고 <strong>신뢰도</strong>로 드러냅니다. 60% 미만은 교사가 직접 보셔야 합니다.</p></div>' +
+      '<div><p class="font-bold text-slate-900">PDF 서식에서 오는 오차</p>' +
+      '<ul class="list-disc pl-5 space-y-0.5">' +
+      '<li>표 안에서 줄이 바뀌면 어절이 갈라질 수 있습니다("사용되다 보면 나 / 쁜 전기가").</li>' +
+      '<li>성적표의 학년 칸은 여러 줄을 병합해 가운데 한 번만 찍힙니다. 경계의 한두 과목이 인접 학년으로 밀릴 수 있습니다. 수학·과학 주요 과목은 정확합니다.</li>' +
+      '<li>나이스 생기부II를 한컴 PDF로 출력하면 이미지가 되어 글자가 추출되지 않습니다.</li></ul></div>' +
+      '<div><p class="font-bold text-slate-900">면접 기출의 범위</p>' +
+      '<p>대학이 공시한 선행학습 영향평가 보고서에서 뽑은 실제 문항입니다. 공개량이 대학마다 달라 모든 학과를 덮지 못합니다. ' +
+      '학과가 다르면 소재보다 <strong>묻는 방식</strong>을 참고하세요.</p></div>' +
+      '<div class="bg-amber-50 border border-amber-200 rounded-lg p-3">' +
+      '<p class="text-amber-900">오류를 발견하시면 어떤 파일에서 어떤 화면이 이상했는지 알려주세요. 재현되면 고칠 수 있습니다.</p></div>' +
+      '</div>'
+  },
+
+  open(key) {
+    const d = Info[key];
+    if (!d) return;
+    $("info-title").textContent = d.title;
+    $("info-body").innerHTML = d.html;
+    const m = $("info-modal");
+    m.classList.remove("hidden");
+    m.classList.add("flex");
+  },
+  close() {
+    const m = $("info-modal");
+    m.classList.add("hidden");
+    m.classList.remove("flex");
+  }
+};
+
+/* ================================================================ 내비게이터 */
+const Nav = {
+  show(on) { $("app-nav").classList.toggle("hidden", !on); },
+  init() {
+    $$("#app-nav a.navlink").forEach(function (a) {
+      a.addEventListener("click", function (e) {
+        e.preventDefault();
+        const el = document.querySelector(a.getAttribute("href"));
+        if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+      });
+    });
+    let t = null;
+    window.addEventListener("scroll", function () {
+      clearTimeout(t); t = setTimeout(Nav.spy, 90);
+    }, { passive: true });
+  },
+  spy() {
+    const nav = $("app-nav");
+    if (!nav || nav.classList.contains("hidden")) return;
+    const box = Views.cur === "doc" ? $("nav-doc") : $("nav-itv");
+    let cur = "";
+    $$("a.navlink", box).forEach(function (a) {
+      const el = document.querySelector(a.getAttribute("href"));
+      if (el && el.getBoundingClientRect().top <= 170) cur = a.getAttribute("href");
+    });
+    $$("a.navlink", box).forEach(function (a) {
+      a.classList.toggle("is-active", a.getAttribute("href") === cur);
+    });
+  }
+};
+
+
+/* ==========================================================================
+   서류 경쟁력 진단 — 이 도구의 핵심
+
+   대학마다 서류 평가요소의 반영비율이 다르다. 같은 학생부라도
+   진로역량 50%인 전형과 학업역량 50%인 전형에서 전혀 다르게 읽힌다.
+   여기서는 그 대학이 '크게 보는 요소'에 이 학생의 근거가
+   두꺼운지 얇은지를 대조해, 교사가 직접 판단할 재료를 만든다.
+
+   합격을 예측하지 않는다. 지원 여부를 정하지 않는다.
+   ========================================================================== */
+
+/* 심화 서술의 표지 — 이런 동사가 있으면 '기술'이 아니라 '탐구'다 */
+const DEPTH_MARK = /(설계|검증|도출|측정|분석|모델링|시뮬레이|산출|비교\s*분석|변인|오차|가설|개선|보완|재설계|정량|정성|알고리즘|구현|제작|실험|탐구|증명|유도|고찰|반박|논증|대안|한계)/;
+/* 결과·성찰의 표지 */
+const REFLECT_MARK = /(깨닫|알게\s*되|배우게|한계를|아쉬웠|보완하고자|이어\s*지|확장하여|후속|더\s*나아가|계기가)/;
+
+const Criteria = {
+  /* ---------- 학생 쪽 '공급' 계산 ---------- */
+  supply() {
+    const st = state.stats;
+    const out = {};
+    CATS.forEach(function (c) { out[c] = { n: 0, strong: 0, depth: 0, reflect: 0, pairs: {}, top: [] }; });
+
+    state.activities.forEach(function (a) {
+      a.sentences.forEach(function (s) {
+        const o = out[s.cat];
+        o.n++;
+        if (s.conf >= 0.75) o.strong++;
+        if (DEPTH_MARK.test(s.text)) o.depth++;
+        if (REFLECT_MARK.test(s.text)) o.reflect++;
+        o.pairs[a.grade + "/" + a.section] = true;
+        o.top.push({ s: s, a: a });
+      });
+    });
+
+    const total = st.total || 1;
+    CATS.forEach(function (c) {
+      const o = out[c];
+      o.share = o.n / total * 100;
+      o.spread = Object.keys(o.pairs).length;
+      // 근거의 질 0~100 : 강한 분류 40 + 심화 서술 35 + 성찰 10 + 확산 15
+      const rStrong = o.n ? o.strong / o.n : 0;
+      const rDepth = o.n ? o.depth / o.n : 0;
+      const rRef = o.n ? o.reflect / o.n : 0;
+      const rSpread = Math.min(1, o.spread / 8);
+      o.qual = Math.round(rStrong * 40 + rDepth * 35 + rRef * 10 + rSpread * 15);
+      o.top.sort(function (x, y) {
+        const dx = (DEPTH_MARK.test(x.s.text) ? 1 : 0), dy = (DEPTH_MARK.test(y.s.text) ? 1 : 0);
+        if (dx !== dy) return dy - dx;
+        return y.s.conf - x.s.conf;
+      });
+    });
+
+    // 학업역량에는 성적이 실제로 들어간다. 교내 위치를 질 지표에 반영한다.
+    const z = state.transcript && state.transcript.zsum;
+    if (z && typeof z.all === "number") {
+      const bonus = Math.max(-12, Math.min(12, Math.round(z.all * 10)));
+      out.ac.qual = Math.max(0, Math.min(100, out.ac.qual + bonus));
+      out.ac.zNote = (z.all >= 0 ? "+" : "") + z.all.toFixed(2);
+    }
+    return out;
+  },
+
+  /* ---------- 선택된 대학·전형 ---------- */
+  current() {
+    const db = state.criteria;
+    if (!db) return null;
+    const uSel = $("sel-univ"), tSel = $("sel-track");
+    const want = (uSel && uSel.value) || "";
+    const own = db.rows.filter(function (r) { return r.u === want; });
+
+    let rows = own, proxy = false;
+    if (!own.length) {
+      // 그 대학의 공시 자료가 없다. 비슷한 수준의 대학 기준을 대신 쓴다.
+      const tier = Criteria.tierOf(want);
+      const peers = db.rows.filter(function (r) { return r.tier === tier; });
+      if (!peers.length) return { none: true, want: want };
+      rows = peers; proxy = true;
+    }
+
+    const idx = tSel ? Math.max(0, Math.min(rows.length - 1, tSel.selectedIndex)) : 0;
+    const row = rows[idx] || rows[0];
+    const sup = Criteria.supply();
+
+    // 요소별 대조
+    const elems = row.elems.map(function (e) {
+      const s = sup[e.map];
+      const supply = s ? s.share : 0;
+      const gap = (e.w === null) ? null : supply - e.w;
+      let verdict = "확인 필요";
+      if (gap !== null) {
+        if (gap >= 10) verdict = "강점";
+        else if (gap <= -10) verdict = "보완 필요";
+        else verdict = "균형";
+      }
+      return { name: e.name, map: e.map, w: e.w, supply: supply, gap: gap,
+               qual: s ? s.qual : 0, n: s ? s.n : 0, depth: s ? s.depth : 0,
+               spread: s ? s.spread : 0, zNote: s ? s.zNote : null, verdict: verdict };
+    });
+
+    // 비중으로 가중한 근거 두께 지수 (합격 확률이 아니다)
+    let wsum = 0, acc = 0;
+    elems.forEach(function (r) {
+      if (r.w === null) return;
+      wsum += r.w;
+      // 비중 대비 공급 충족도(최대 1.3까지만 인정) × 근거의 질
+      const fill = Math.min(1.3, r.w > 0 ? r.supply / r.w : 1);
+      acc += r.w * (fill * 0.5 + (r.qual / 100) * 0.5);
+    });
+    const index = wsum ? Math.round(acc / wsum * 100) : null;
+
+    return {
+      row: row, rows: elems, proxy: proxy, want: want,
+      shownAs: (proxy ? want : row.u) + " · " + row.track,
+      index: index, trackList: rows, supply: sup
+    };
+  },
+
+  tierOf(u) {
+    const ti = (state.criteria && state.criteria.meta.tierIndex) || {};
+    for (const k in ti) if (ti[k].indexOf(u) >= 0) return Number(k);
+    return 0;
+  },
+
+  /* ---------- 셀렉트 구성 ---------- */
+  fillSelects(keepU) {
+    const db = state.criteria;
+    const uSel = $("sel-univ"), tSel = $("sel-track");
+    if (!db || !uSel) return;
+
+    if (!uSel.dataset.filled) {
+      const ti = db.meta.tierIndex || {};
+      const withData = {};
+      db.rows.forEach(function (r) { withData[r.u] = true; });
+      const all = [];
+      Object.keys(ti).forEach(function (k) { ti[k].forEach(function (u) { all.push(u); }); });
+      db.meta.universities.forEach(function (u) { if (all.indexOf(u) < 0) all.push(u); });
+
+      const have = all.filter(function (u) { return withData[u]; }).sort();
+      const none = all.filter(function (u) { return !withData[u]; }).sort();
+      const opt = function (u) { return '<option value="' + esc(u) + '">' + esc(u) + '</option>'; };
+      uSel.innerHTML =
+        '<optgroup label="공시 자료 수록">' + have.map(opt).join("") + '</optgroup>' +
+        (none.length ? '<optgroup label="비슷한 수준 대학 기준으로 대신함">' + none.map(opt).join("") + '</optgroup>' : "");
+      uSel.dataset.filled = "1";
+      uSel.value = have[0] || none[0];
+    }
+    if (keepU) uSel.value = keepU;
+
+    const want = uSel.value;
+    let rows = db.rows.filter(function (r) { return r.u === want; });
+    if (!rows.length) {
+      const tier = Criteria.tierOf(want);
+      rows = db.rows.filter(function (r) { return r.tier === tier; });
+    }
+    tSel.innerHTML = rows.length
+      ? rows.map(function (r) {
+          return '<option>' + esc(r.track) + ' · ' + esc(r.stage === "서류100" ? "서류 100%" : "서류+면접") + '</option>';
+        }).join("")
+      : '<option>공시 자료 없음</option>';
+  }
+};
+
+/* ---------- 렌더 ---------- */
+Render.criteriaPanel = function () {
+  const head = $("crit-head"), body = $("crit-rows"),
+        verd = $("crit-verdict"), act = $("crit-actions");
+  if (!head) return;
+
+  if (!state.criteria) {
+    head.innerHTML = '<p class="text-[11px] text-slate-500">대학별 평가요소 자료를 불러오지 못했습니다. ' +
+      '개요의 3역량 분포와 아래 구역들로 진단하세요.</p>';
+    body.innerHTML = ""; verd.innerHTML = ""; verd.className = "hidden"; act.innerHTML = "";
+    return;
+  }
+
+  const cr = Criteria.current();
+  if (!cr || cr.none) {
+    head.innerHTML = '<p class="text-[11px] text-slate-500">이 대학과 비슷한 수준의 공시 자료가 아직 없습니다. ' +
+      '학종 공통 평가요소(3역량)로만 보시고, 비중은 해당 대학 모집요강에서 확인하십시오.</p>';
+    body.innerHTML = ""; verd.innerHTML = ""; verd.className = "hidden"; act.innerHTML = "";
+    return;
+  }
+
+  const r = cr.row;
+  const isDoc100 = r.stage === "서류100";
+
+  /* ── 전형 개요 ── */
+  head.innerHTML =
+    '<div class="flex flex-wrap items-center gap-1.5 mb-2">' +
+      '<span class="px-2 py-0.5 rounded-md text-[10px] font-black bg-slate-900 text-white">' + esc(cr.want) + '</span>' +
+      '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-white border border-slate-300 text-slate-700">' + esc(r.track) + '</span>' +
+      '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold ' +
+        (isDoc100 ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800') + '">' +
+        (isDoc100 ? '서류 100%' : '서류 + 면접') + '</span>' +
+      (r.conf === "partial"
+        ? '<span class="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-100 text-rose-800">일부 비중 확인 필요</span>' : '') +
+    '</div>' +
+    (cr.proxy
+      ? '<div class="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2 mb-2">' +
+        '<p class="text-[11px] text-amber-900 leading-relaxed">' +
+        '<strong>' + esc(cr.want) + '의 공시 자료가 없습니다.</strong> 비슷한 수준의 <strong>' + esc(r.u) + '</strong> 기준으로 대신 대조합니다. ' +
+        '대학이 다르므로 정확한 비중이 아니라 <em>이 급의 대학이 무엇을 크게 보는지</em>의 참고로만 쓰십시오.</p></div>'
+      : '') +
+    '<p class="text-[11px] text-slate-600 leading-relaxed">' + esc(r.note) + '</p>' +
+    '<p class="text-[9.5px] text-slate-400 mt-1.5">출처: ' + esc(r.src) + '</p>';
+
+  /* ── 요소별 수요 vs 공급 ── */
+  const COLOR = { ac: "#2563eb", ca: "#059669", co: "#d97706" };
+  const VBADGE = {
+    "강점": "bg-emerald-100 text-emerald-800",
+    "균형": "bg-slate-200 text-slate-700",
+    "보완 필요": "bg-rose-100 text-rose-800",
+    "확인 필요": "bg-slate-100 text-slate-500"
+  };
+
+  body.innerHTML = cr.rows.map(function (e) {
+    const w = e.w === null ? 0 : e.w;
+    const sc = Math.min(100, e.supply);
+    return '<div class="rounded-xl border border-slate-200 p-3">' +
+      '<div class="flex items-center justify-between gap-2 mb-1.5">' +
+        '<div class="flex items-center gap-1.5 min-w-0">' +
+          '<span class="w-2 h-2 rounded-full flex-shrink-0" style="background:' + COLOR[e.map] + '"></span>' +
+          '<span class="text-[12px] font-bold text-slate-900 truncate">' + esc(e.name) + '</span>' +
+          '<span class="text-[10px] font-bold text-indigo-700 bg-indigo-50 px-1.5 py-0.5 rounded flex-shrink-0">' +
+            (e.w === null ? '비중 확인 필요' : '대학 반영 ' + e.w + '%') + '</span>' +
+        '</div>' +
+        '<span class="px-2 py-0.5 rounded text-[10px] font-black flex-shrink-0 ' + VBADGE[e.verdict] + '">' + e.verdict + '</span>' +
+      '</div>' +
+      '<div class="duo mb-1.5">' +
+        '<div class="demand" style="width:' + w + '%"></div>' +
+        '<div class="supply" style="width:' + sc + '%;background:' + COLOR[e.map] + '"></div>' +
+        (e.w === null ? '' : '<div class="tick" style="left:' + w + '%"></div>') +
+      '</div>' +
+      '<div class="flex flex-wrap items-center gap-x-3 gap-y-0.5 text-[10px] text-slate-500">' +
+        '<span>학생 근거 <strong class="text-slate-800 tnum">' + e.supply.toFixed(0) + '%</strong> (' + e.n + '문장)</span>' +
+        '<span>심화 서술 <strong class="text-slate-800 tnum">' + e.depth + '</strong>건</span>' +
+        '<span>영역 확산 <strong class="text-slate-800 tnum">' + e.spread + '</strong>곳</span>' +
+        '<span title="분류 신뢰도·심화 서술 비율·성찰 표현·영역 확산을 합산한 0~100 지표입니다. 문장 수가 아니라 밀도를 봅니다.">' +
+          '근거 밀도 <strong class="text-slate-800 tnum">' + e.qual + '</strong>/100' +
+          (e.zNote ? ' <span class="text-indigo-600">(교내 z ' + e.zNote + ' 반영)</span>' : '') + '</span>' +
+        (e.gap === null ? '' :
+          '<span class="' + (e.gap >= 0 ? 'text-emerald-700' : 'text-rose-700') + ' font-semibold">' +
+          (e.gap > 0 ? '+' : '') + e.gap.toFixed(0) + '%p</span>') +
+      '</div>' +
+    '</div>';
+  }).join("");
+
+  /* ── 종합 ── */
+  const weak = cr.rows.filter(function (e) { return e.verdict === "보완 필요"; })
+                      .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
+  const strongEl = cr.rows.filter(function (e) { return e.verdict === "강점"; })
+                      .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
+
+  let tone = "border-slate-200 bg-slate-50/70", icon = "fa-circle-info", ictone = "text-slate-500";
+  if (weak.length && weak[0].w >= 40) { tone = "border-rose-200 bg-rose-50/60"; icon = "fa-triangle-exclamation"; ictone = "text-rose-600"; }
+  else if (!weak.length && strongEl.length) { tone = "border-emerald-200 bg-emerald-50/60"; icon = "fa-circle-check"; ictone = "text-emerald-600"; }
+
+  verd.className = "rounded-xl border p-4 " + tone;
+  verd.innerHTML =
+    '<div class="flex items-start gap-2.5">' +
+      '<i class="fa-solid ' + icon + ' ' + ictone + ' mt-0.5"></i>' +
+      '<div class="min-w-0">' +
+        '<p class="text-[12px] font-black text-slate-900">이 전형의 비중으로 다시 읽으면</p>' +
+        '<p class="text-[11px] text-slate-700 leading-relaxed mt-1">' +
+          (strongEl.length
+            ? '<strong>' + esc(strongEl[0].name) + '</strong>(' + (strongEl[0].w === null ? '?' : strongEl[0].w + '%') +
+              ')에서 근거가 비중보다 두껍습니다. 이 전형이 크게 보는 쪽에 자료가 모여 있습니다. '
+            : '') +
+          (weak.length
+            ? '반면 <strong class="text-rose-800">' + esc(weak[0].name) + '</strong>은 이 전형이 ' +
+              (weak[0].w === null ? '' : weak[0].w + '%나 ') + '보는 요소인데 생기부 근거가 ' +
+              weak[0].supply.toFixed(0) + '%에 그칩니다' +
+              (weak[0].depth <= 2 ? ', 심화 서술도 ' + weak[0].depth + '건뿐입니다' : '') + '. ' +
+              '<strong>비중이 큰 곳이 얇다</strong>는 것이 이 전형에서 가장 중요한 신호입니다. '
+            : '비중 대비 크게 비어 있는 요소는 없습니다. ') +
+          (cr.index !== null
+            ? '비중 가중 근거 두께 지수는 <strong class="tnum">' + cr.index + '/100</strong>입니다.'
+            : '일부 요소의 비중이 확인되지 않아 지수를 내지 않았습니다.') +
+        '</p>' +
+        '<p class="text-[10px] text-slate-500 mt-1.5 leading-relaxed">' +
+          '이 지수는 <strong>합격 가능성이 아닙니다.</strong> 같은 학생이라도 전형을 바꾸면 값이 달라집니다 — ' +
+          '그 차이를 보라고 만든 숫자이지, 학생을 점수화하려는 것이 아닙니다.</p>' +
+      '</div>' +
+    '</div>';
+
+  /* ── 상담에서 확인할 것 ── */
+  const cards = [];
+  if (weak.length) {
+    const w0 = weak[0];
+    const ex = (cr.supply[w0.map].top[0] || {});
+    cards.push({
+      t: esc(w0.name) + " — 근거를 더 찾거나, 전형을 바꾸거나",
+      c: "학생에게 이 요소로 읽힐 활동이 더 있는지 물어보십시오. 생기부에 안 적혔을 뿐 실제로 한 일이 있을 수 있습니다. " +
+         "없다면 이 요소 비중이 낮은 다른 전형이 더 맞습니다." +
+         (ex.s ? " 현재 가장 강한 근거: <span class=\"italic\">\"" + esc(ex.s.text.slice(0, 60)) + "…\"</span>" : ""),
+      tone: "rose"
+    });
+  }
+  if (strongEl.length) {
+    const s0 = strongEl[0];
+    const ex = (cr.supply[s0.map].top[0] || {});
+    cards.push({
+      t: esc(s0.name) + " — 이 전형에서 밀어야 할 축",
+      c: "비중이 큰 요소에 근거가 모여 있습니다. 상담에서 이 축의 서사를 정리해 두면 " +
+         (isDoc100 ? "서류만으로도 읽힙니다." : "면접에서 확인 질문이 들어왔을 때 바로 답할 수 있습니다.") +
+         (ex.s ? " 대표 근거: <span class=\"italic\">\"" + esc(ex.s.text.slice(0, 60)) + "…\"</span>" : ""),
+      tone: "emerald"
+    });
+  }
+  const lowQual = cr.rows.filter(function (e) { return e.n >= 5 && e.qual < 40; })
+                         .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
+  if (lowQual.length) {
+    cards.push({
+      t: esc(lowQual[0].name) + " — 양은 있는데 질이 얇습니다",
+      c: lowQual[0].n + "문장이 있지만 심화 서술은 " + lowQual[0].depth + "건뿐입니다. " +
+         "'참여함·노력함'류 서술이 많다는 뜻입니다. 무엇을 판단하고 어떻게 바꿨는지가 들어가야 평가 근거가 됩니다.",
+      tone: "amber"
+    });
+  }
+  if (r.conf === "partial") {
+    cards.push({
+      t: "이 전형은 일부 비중이 확인되지 않았습니다",
+      c: "가이드북 표에서 확정하지 못한 값이 있습니다. 추정하지 않았습니다. " +
+         "<strong>" + esc(r.u) + " 2027 수시모집요강</strong>에서 반영비율을 직접 확인하신 뒤 판단하십시오.",
+      tone: "slate"
+    });
+  }
+  if (!isDoc100) {
+    cards.push({
+      t: "면접이 있는 전형입니다",
+      c: "서류에서 확인된 것을 면접에서 다시 묻습니다. 근거가 얇은 요소는 면접에서도 답이 얇아집니다. " +
+         "아래 <strong>면접 대비로 넘어가기</strong>에서 실제 기출과 이 학생의 근거를 연결해 보십시오.",
+      tone: "amber"
+    });
+  }
+
+  const TONE = {
+    rose: "border-rose-200 bg-rose-50/50", emerald: "border-emerald-200 bg-emerald-50/50",
+    amber: "border-amber-200 bg-amber-50/50", slate: "border-slate-200 bg-slate-50/70"
+  };
+  act.innerHTML = cards.map(function (c) {
+    return '<div class="rounded-xl border p-3 ' + TONE[c.tone] + '">' +
+      '<p class="text-[11px] font-bold text-slate-900 mb-1">' + c.t + '</p>' +
+      '<p class="text-[10.5px] text-slate-600 leading-relaxed">' + c.c + '</p></div>';
+  }).join("");
+
+  // 면접 안내 문구를 전형에 맞춘다
+  const gm = $("goto-interview-msg");
+  if (gm) {
+    gm.innerHTML = isDoc100
+      ? '선택하신 <strong>' + esc(cr.want) + ' ' + esc(r.track) + '</strong>은 <strong class="text-emerald-700">서류 100%</strong> 전형입니다. ' +
+        '면접이 없으므로 여기서 끝내셔도 됩니다. 다른 대학 면접 대비가 필요하면 넘어가세요.'
+      : '선택하신 <strong>' + esc(cr.want) + ' ' + esc(r.track) + '</strong>은 <strong class="text-amber-700">서류 + 면접</strong> 전형입니다. ' +
+        '서류에서 확인된 것을 면접에서 다시 묻습니다.';
+  }
+};
+
+
+/* ==========================================================================
+   활동 핵심요소 연결망
+
+   평가자는 활동을 개수로 세지 않는다. 한 주제가 교과 세특 → 동아리 →
+   진로활동 → 독서로 이어지고 학년이 오르며 깊어졌는지를 본다.
+   여기서는 생기부 전체에서 주제어를 뽑아 학년 × 영역 확산을 그린다.
+   ========================================================================== */
+
+/* 주제어가 될 수 없는 말들. 생기부에 흔하지만 '무엇을 탐구했는가'를 담지 않는다. */
+const STOP = new Set((
+  "학생 활동 수업 시간 내용 과정 결과 모습 태도 자세 능력 역량 부분 경우 문제 방법 자료 " +
+  "발표 조사 정리 작성 참여 노력 관심 흥미 이해 생각 의견 친구 학급 학교 선생 담임 " +
+  "때문 통해 위해 대해 대한 관련 다양 중요 우수 성실 적극 뛰어 보임 있음 특징 특성 " +
+  "이후 이를 그것 자신 본인 스스로 특히 매우 항상 자주 계기 바탕 중심 기반 향상 증진 " +
+  "보고서 프로젝트 캠페인 포스터 진행 실시 구성 설명 소개 제시 확인 제작 조원 " +
+  "학년 학기 교과 과목 단원 주제 사례 토론 토의 모둠 팀원 역할 리더 부장 차시 " +
+  "지식 개념 원리 이론 현상 실제 사회 세계 미래 진로 희망 대학 전공 계열 분야 " +
+  "학습 공부 성적 시험 평가 과제 수행 발전 성장 변화 영향 효과 필요 사용 이용 활용 " +
+  "다음 이번 당시 최근 이상 이하 정도 수준 상태 상황 조건 방식 형태 종류 " +
+  "우리 여러 모든 다른 새로 자기 서로 함께 직접 실천 태세 자료집 주목 배우 건물 " +
+  "또한 지속 가능 제시 검토 언급 강조 표현 기록 서술 기술 관찰 발견 도입 적용 " +
+  "자체 전체 일부 각각 특별 일반 기본 핵심 주요 최고 최대 최소 평소 이전"
+).split(/\s+/));
+
+/* 어미·활용형 꼬리. 이런 것으로 끝나면 명사가 아니다. */
+const TAIL_BAD = /(함|됨|된|되는|하는|하며|하여|했던|한다|이다|한|같은|많은|높은|낮은|있는|없는|위한|통한|대한|적으|스러|롭게|하게|히|서|고|게|여|음|임|줌|움|짐|져|줘|었|았|겠|던|자|며)$/;
+
+const Linkage = {
+  /** 형태소 분석기 없이 개념어 후보를 뽑는다. 보수적으로, 애매하면 버린다. */
+  tokens(text) {
+    const out = [];
+    const raw = String(text || "").match(/[가-힣]{2,12}/g) || [];
+    for (let i = 0; i < raw.length; i++) {
+      let t = raw[i];
+      // 조사 절단 (긴 것부터)
+      t = t.replace(/(으로써|으로서|에서의|에게서|이라는|라는|에서|에게|으로|와의|과의|들의|까지|부터|처럼|보다|만큼|이나|라도|를|을|이|가|은|는|의|에|과|와|도|로|만)$/, "");
+      if (t.length < 2 || t.length > 7) continue;
+      if (STOP.has(t)) continue;
+      if (TAIL_BAD.test(t)) continue;
+      // 용언 어간으로 시작하는 조각
+      if (/^(하|되|있|없|같|그러|이러|저러|어떻|무엇|아니|많이|다시|더욱|가장|점차|서서)/.test(t)) continue;
+      out.push(t);
+    }
+    return out;
+  },
+
+  build() {
+    if (Linkage._cache && Linkage._cacheKey === state.activities.length + ":" + (state.stats && state.stats.edited)) {
+      return Linkage._cache;
+    }
+    const map = {};
+    state.activities.forEach(function (a) {
+      a.sentences.forEach(function (s) {
+        const seen = {};
+        Linkage.tokens(s.text).forEach(function (t) {
+          if (seen[t]) return;
+          seen[t] = true;
+          if (!map[t]) map[t] = { t: t, n: 0, cells: {}, grades: {}, secs: {}, ex: [] };
+          const m = map[t];
+          m.n++;
+          m.cells[a.grade + "|" + a.section] = true;
+          m.grades[a.grade] = true;
+          m.secs[a.section] = true;
+          if (m.ex.length < 3) m.ex.push({ g: a.grade, sec: a.section, title: a.title, text: s.text });
+        });
+      });
+    });
+
+    let list = Object.keys(map).map(function (k) { return map[k]; })
+      .map(function (m) {
+        m.nGrade = Object.keys(m.grades).length;
+        m.nSec = Object.keys(m.secs).length;
+        m.score = m.nSec * 4 + m.nGrade * 3 + Math.min(8, m.n);
+        return m;
+      })
+      // 세 번 이상 나오고, 두 영역 이상에 걸쳐야 '연결'로 본다.
+      .filter(function (m) { return m.n >= 3; })
+      .sort(function (a, b) { return b.score - a.score || b.n - a.n; });
+
+    // 부분문자열 중복 제거 — '자율주행'이 있으면 '주행'은 버린다
+    const kept = [];
+    list.forEach(function (m) {
+      for (let i = 0; i < kept.length; i++) {
+        const k = kept[i].t;
+        if (k.indexOf(m.t) >= 0 || m.t.indexOf(k) >= 0) return;
+      }
+      kept.push(m);
+    });
+
+    Linkage._cache = kept;
+    Linkage._cacheKey = state.activities.length + ":" + (state.stats && state.stats.edited);
+    return kept;
+  }
+};
+
+Render.linkage = function () {
+  const box = $("linkage-rows");
+  if (!box) return;
+  const all = Linkage.build();
+  const SECS = ["세특", "자율", "동아리", "진로", "봉사", "독서", "행특"];
+
+  // 실제로 '연결된' 주제 : 두 영역 이상에 걸쳐야 한다
+  const linked = all.filter(function (m) { return m.nSec >= 2; });
+  const three = linked.filter(function (m) { return m.nGrade >= 3 && m.nSec >= 2; });
+  const wide = linked.filter(function (m) { return m.nSec >= 3; });
+  const single = all.filter(function (m) { return m.nSec === 1 && m.n >= 5; });
+
+  $("linkage-note").textContent = "주제어 " + all.length + "개 · 영역 넘나든 주제 " + linked.length + "개";
+
+  const top = linked.slice(0, 12);
+  box.innerHTML = top.length ? top.map(function (m) {
+    const cells = SECS.map(function (sec) {
+      const hit = ["1", "2", "3"].filter(function (g) { return m.cells[g + "|" + sec]; });
+      if (!hit.length) return '<td class="text-center text-slate-200 text-[9px]">·</td>';
+      return '<td class="text-center"><span class="inline-block px-1 py-0.5 rounded text-[9px] font-bold bg-violet-100 text-violet-800">' +
+             hit.join("") + '</span></td>';
+    }).join("");
+    const strength = m.nGrade >= 3 ? "3년 연계" : (m.nSec >= 3 ? "영역 확산" : "부분 연결");
+    const sTone = m.nGrade >= 3 ? "bg-emerald-100 text-emerald-800"
+                : (m.nSec >= 3 ? "bg-violet-100 text-violet-800" : "bg-slate-200 text-slate-600");
+    return '<div class="rounded-lg border border-slate-200 px-2.5 py-1.5">' +
+      '<div class="flex items-center gap-2">' +
+        '<span class="text-[11.5px] font-bold text-slate-900 w-24 truncate flex-shrink-0" title="' + esc(m.t) + '">' + esc(m.t) + '</span>' +
+        '<span class="px-1.5 py-0.5 rounded text-[9px] font-bold flex-shrink-0 ' + sTone + '">' + strength + '</span>' +
+        '<table class="flex-1 text-[9px]"><tr>' + cells + '</tr></table>' +
+        '<span class="text-[9.5px] text-slate-400 tnum flex-shrink-0">' + m.n + '건</span>' +
+      '</div></div>';
+  }).join("") : '<p class="text-[11px] text-slate-400 py-6 text-center">여러 영역에 걸쳐 반복되는 주제어를 찾지 못했습니다.</p>';
+
+  if (top.length) {
+    box.insertAdjacentHTML("afterbegin",
+      '<div class="flex items-center gap-2 px-2.5 pb-1">' +
+        '<span class="text-[9px] font-bold text-slate-400 w-24 flex-shrink-0">주제어</span>' +
+        '<span class="w-[52px] flex-shrink-0"></span>' +
+        '<table class="flex-1 text-[9px] text-slate-400 font-semibold"><tr>' +
+          SECS.map(function (s) { return '<td class="text-center">' + s + '</td>'; }).join("") +
+        '</tr></table><span class="w-8 flex-shrink-0"></span></div>');
+  }
+
+  /* 요약 */
+  const sum = $("linkage-summary");
+  sum.innerHTML =
+    '<p class="text-[11px] font-bold text-violet-900 mb-1.5"><i class="fa-solid fa-link mr-1"></i>연결의 두께</p>' +
+    '<div class="space-y-1 text-[10.5px] text-violet-900/90">' +
+      '<p><strong class="tnum">' + three.length + '</strong>개 주제가 <strong>3년 내내</strong> 이어집니다' +
+        (three.length ? ' — ' + three.slice(0, 4).map(function (m) { return esc(m.t); }).join(", ") : "") + '</p>' +
+      '<p><strong class="tnum">' + wide.length + '</strong>개 주제가 <strong>3개 이상 영역</strong>에 걸칩니다' +
+        (wide.length ? ' — ' + wide.slice(0, 4).map(function (m) { return esc(m.t); }).join(", ") : "") + '</p>' +
+    '</div>' +
+    '<p class="text-[10px] text-violet-800/80 leading-relaxed mt-2 pt-2 border-t border-violet-200/60">' +
+      (three.length >= 2
+        ? '학년을 관통하는 축이 있습니다. 서류에서 <strong>일관성</strong>으로 읽힐 자산입니다. 상담에서 이 축의 서사를 정리하세요.'
+        : (linked.length >= 5
+          ? '영역을 넘나드는 주제는 있으나 <strong>3년을 관통하는 축</strong>은 뚜렷하지 않습니다. 어느 주제를 중심으로 읽히게 할지 정해야 합니다.'
+          : '주제가 흩어져 있습니다. 활동 수가 적어서가 아니라 <strong>같은 관심이 반복되지 않아서</strong>입니다. 3학년 기재에서 하나로 묶을 여지를 찾으세요.')) +
+    '</p>';
+
+  /* 단발성 */
+  const sg = $("linkage-single");
+  sg.innerHTML =
+    '<p class="text-[11px] font-bold text-slate-800 mb-1.5"><i class="fa-solid fa-circle-dot mr-1 text-slate-400"></i>한 영역에만 머문 주제</p>' +
+    (single.length
+      ? '<div class="flex flex-wrap gap-1">' + single.slice(0, 10).map(function (m) {
+          return '<span class="px-1.5 py-0.5 rounded bg-white border border-slate-200 text-[10px] text-slate-600">' +
+                 esc(m.t) + ' <span class="text-slate-400">' + Object.keys(m.secs)[0] + '</span></span>';
+        }).join("") + '</div>' +
+        '<p class="text-[10px] text-slate-500 leading-relaxed mt-2">' +
+        '한 영역에서만 반복된 주제입니다. 다른 영역으로 이어졌다면 더 두껍게 읽혔을 것입니다. ' +
+        '3학년 세특·진로활동에서 연결할 수 있는지 확인하세요.</p>'
+      : '<p class="text-[10px] text-slate-500">눈에 띄는 단발성 주제가 없습니다.</p>');
+};
+
+
+/* ==========================================================================
+   면접 대비 (별도 화면)
+
+   학종 면접은 새로운 것을 묻지 않는다. 서류에 적힌 것을 확인한다.
+   그래서 모든 문항은 이 학생의 생기부에서 출발한다.
+
+   대학군은 화면에 표기하지 않는다. 지원 대학의 공시 자료가 없을 때
+   '비슷한 수준의 어느 대학은 이렇게 묻는다'를 찾기 위한 내부 키일 뿐이다.
+   ========================================================================== */
+
+Render.interviewAll = function () {
+  Render.interviewCommon();
+  Render.interviewPanel();
+  Render.interviewGap();
+  Render.interviewAnchor();
+  const pm = $("print-meta-itv");
+  if (pm) {
+    pm.textContent = (state.student.name || "학생") + " · " + (state.student.school || "") +
+      " · 출력일 " + new Date().toLocaleDateString("ko-KR");
+  }
+  const intro = $("itv-intro");
+  const cr = state.criteria ? Criteria.current() : null;
+  if (intro && cr && cr.row) {
+    intro.innerHTML =
+      '학종 면접은 새로운 것을 묻지 않습니다. <strong class="text-slate-800">서류에 적힌 것을 확인</strong>합니다. ' +
+      '서류 진단에서 고르신 전형은 <strong>' + esc(cr.want) + ' ' + esc(cr.row.track) + '</strong>' +
+      (cr.row.stage === "서류100"
+        ? ' — <strong class="text-emerald-700">서류 100%</strong>라 면접이 없습니다. 다른 대학 대비용으로 참고하세요.'
+        : ' — <strong class="text-amber-700">서류 + 면접</strong> 전형입니다.') +
+      ' 아래 문항은 모두 이 학생의 생활기록부에서 출발합니다.';
+  }
+};
+
+/* ---------- 공통 문항 : 어느 대학이든 나온다 ---------- */
+const COMMON_Q = [
+  { q: "1분 내로 자기소개를 해 주세요.",
+    k: "자기소개",
+    tip: "이력 나열이 아니라 <strong>한 축</strong>을 세우세요. 3년간 이어진 주제 하나 + 그것을 보여준 장면 하나 + 전공 연결. 활동 개수는 서류에 이미 있습니다." },
+  { q: "우리 학과에 지원한 동기는 무엇인가요?",
+    k: "지원동기",
+    tip: "'관심이 있어서'는 답이 아닙니다. <strong>언제 무엇을 계기로</strong> 이 분야를 알게 됐고, 그 뒤 <strong>무엇을 해봤는지</strong>가 동기입니다. 학교 활동에서 출발해야 합니다." },
+  { q: "고교 생활 중 가장 의미 있었던 활동과 그 이유를 말해 주세요.",
+    k: "대표활동",
+    tip: "가장 화려한 활동이 아니라 <strong>가장 설명할 게 많은</strong> 활동을 고르세요. 꼬리 질문이 반드시 붙습니다." },
+  { q: "그 활동에서 본인이 구체적으로 맡은 역할과 기여는 무엇이었나요?",
+    k: "역할확인",
+    tip: "모둠 활동은 거의 항상 이 질문이 따라옵니다. '함께 했다'가 아니라 <strong>내가 판단한 지점</strong>을 말해야 합니다." },
+  { q: "활동 중 어려움을 겪은 경험과 해결 과정을 말해 주세요.",
+    k: "문제해결",
+    tip: "실패해도 됩니다. 무엇이 왜 안 됐는지 <strong>원인을 짚었는지</strong>를 봅니다. 원인 진단 없는 극복담은 감점입니다." },
+  { q: "진학 후 학업 계획과 졸업 후 진로 계획을 말해 주세요.",
+    k: "학업계획",
+    tip: "해당 학과의 <strong>실제 교육과정</strong>에서 한두 과목을 짚어 말하세요. 고교 활동 → 그 과목 → 이후 진로로 이어져야 합니다." },
+  { q: "마지막으로 하고 싶은 말이 있나요?",
+    k: "마무리",
+    tip: "앞에서 <strong>못 다 한 근거 하나</strong>를 준비해 두세요. 감정 호소가 아니라 사실 하나를 더 얹는 자리입니다." }
+];
+
+Render.interviewCommon = function () {
+  const box = $("itv-common-rows");
+  if (!box) return;
+
+  // 각 공통 문항에 이 학생의 근거를 붙인다
+  const acts = state.activities;
+  const pickBy = function (pred, n) {
+    const pool = [];
+    acts.forEach(function (a) {
+      a.sentences.forEach(function (s) { if (pred(a, s)) pool.push({ a: a, s: s }); });
+    });
+    pool.sort(function (x, y) {
+      const dx = DEPTH_MARK.test(x.s.text) ? 1 : 0, dy = DEPTH_MARK.test(y.s.text) ? 1 : 0;
+      if (dx !== dy) return dy - dx;
+      if (x.a.grade !== y.a.grade) return Number(y.a.grade) - Number(x.a.grade);
+      return y.s.conf - x.s.conf;
+    });
+    return pool.slice(0, n || 2);
+  };
+
+  const linked = (typeof Linkage !== "undefined") ? Linkage.build().filter(function (m) {
+    return m.nGrade >= 2 || m.nSec >= 2;
+  }) : [];
+  const axis = linked.slice(0, 3).map(function (m) { return m.t; });
+
+  const EV = {
+    "자기소개": pickBy(function (a, s) { return s.cat === "ca" && DEPTH_MARK.test(s.text); }, 2),
+    "지원동기": pickBy(function (a, s) { return a.section === "진로" || (s.cat === "ca" && s.sub); }, 2),
+    "대표활동": pickBy(function (a, s) { return DEPTH_MARK.test(s.text) && s.conf >= 0.7; }, 2),
+    "역할확인": pickBy(function (a, s) { return s.cat === "co" || /모둠|팀|협업|공동|함께/.test(s.text); }, 2),
+    "문제해결": pickBy(function (a, s) { return /오차|한계|실패|어려|보완|개선|재설계|시행착오/.test(s.text); }, 2),
+    "학업계획": pickBy(function (a, s) { return a.grade === "3" && s.cat === "ca"; }, 2),
+    "마무리": pickBy(function (a, s) { return s.conf >= 0.8 && DEPTH_MARK.test(s.text); }, 1)
+  };
+
+  box.innerHTML = COMMON_Q.map(function (c) {
+    const ev = EV[c.k] || [];
+    return '<div class="rounded-xl border border-slate-200 p-3">' +
+      '<div class="flex items-start gap-2 mb-1.5">' +
+        '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-slate-900 text-white flex-shrink-0 mt-0.5">공통</span>' +
+        '<p class="text-[11.5px] font-semibold text-slate-900 leading-snug">' + esc(c.q) + '</p>' +
+      '</div>' +
+      '<p class="text-[10.5px] text-slate-600 leading-relaxed pl-1">' + c.tip + '</p>' +
+      (c.k === "자기소개" && axis.length
+        ? '<p class="text-[10px] text-violet-800 bg-violet-50 border border-violet-200/60 rounded px-2 py-1 mt-1.5">' +
+          '이 학생의 3년 축 후보: <strong>' + axis.map(esc).join(" · ") + '</strong> — 연결망 분석에서 반복 확인된 주제입니다.</p>'
+        : "") +
+      (ev.length
+        ? '<div class="mt-2 pt-2 border-t border-slate-100">' +
+          '<p class="text-[9.5px] font-bold text-slate-500 mb-1">이 학생이 쓸 근거</p>' +
+          ev.map(function (e) {
+            return '<p class="text-[10.5px] text-slate-600 leading-snug mb-0.5">' +
+              '<span class="font-semibold text-slate-800">[' + esc(e.a.grade) + '학년 ' + esc(e.a.title) + ']</span> ' +
+              esc(e.s.text.slice(0, 95)) + (e.s.text.length > 95 ? "…" : "") + '</p>';
+          }).join("") + '</div>'
+        : '<p class="mt-2 pt-2 border-t border-slate-100 text-[10px] text-rose-600">' +
+          '생기부에서 이 질문에 바로 쓸 문장을 찾지 못했습니다. 학생에게 직접 물어 확인하세요.</p>') +
+      '</div>';
+  }).join("");
+};
+
+/* ---------- 대학 공시 기출 연결 ---------- */
+Render.interviewPanel = function () {
+  const db = state.exams;
+  const box = $("interview-rows");
+  const px = $("itv-proxy");
+  if (!box) return;
+
+  if (!db || !db.rows || !db.rows.length) {
+    $("interview-note").textContent = "기출 자료 없음";
+    px.classList.add("hidden");
+    box.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-8">대학 공시 기출 자료를 불러오지 못했습니다. ' +
+      '위 공통 문항과 답변 설계 틀로 준비하세요.</p>';
+    return;
+  }
+
+  // 지원 대학 = 서류 진단에서 고른 대학
+  const cr = state.criteria ? Criteria.current() : null;
+  const want = (cr && cr.want) || "";
+  const own = db.rows.filter(function (r) { return r.u === want; });
+
+  let pool = own, proxy = false, proxyFrom = [];
+  if (!own.length) {
+    const tier = (typeof Criteria !== "undefined") ? Criteria.tierOf(want) : 0;
+    pool = db.rows.filter(function (r) { return r.tier === tier; });
+    proxy = true;
+  }
+  if (!pool.length) { pool = db.rows; proxy = true; }
+  pool.forEach(function (r) { if (proxyFrom.indexOf(r.u) < 0) proxyFrom.push(r.u); });
+
+  if (proxy) {
+    px.classList.remove("hidden");
+    px.innerHTML =
+      '<p class="text-[11px] text-slate-700 leading-relaxed">' +
+      (want ? '<strong>' + esc(want) + '</strong>의 공시 기출은 아직 수록되지 않았습니다. ' : '') +
+      '비슷한 수준의 <strong>' + esc(proxyFrom.join(", ")) + '</strong> 기출로 대신 보여드립니다. ' +
+      '대학이 다르므로 소재를 그대로 외우지 마시고, <strong>무엇을 어떤 방식으로 확인하는지</strong>를 보세요. ' +
+      '학생부 기반 확인 면접이라는 구조는 같습니다.</p>';
+  } else {
+    px.classList.add("hidden");
+  }
+
+  const fullText = Render._fullText();
+  const mySections = {};
+  state.activities.forEach(function (a) { mySections[a.section] = true; });
+
+  const scored = pool.map(function (r) {
+    let s = 0;
+    const hitTags = [];
+    (r.tags || []).forEach(function (t) {
+      if (fullText.indexOf(t) >= 0) { s += 2; hitTags.push(t); }
+    });
+    (r.sections || []).forEach(function (sec) { if (mySections[sec]) s += 1; });
+    return { r: r, score: s, hitTags: hitTags };
+  }).filter(function (x) { return x.score > 0; })
+    .sort(function (a, b) { return b.score - a.score; });
+
+  $("interview-note").textContent =
+    "매칭 " + scored.length + "문항 / 수록 " + pool.length + "문항 · 출처 " + proxyFrom.join("·");
+
+  if (!scored.length) {
+    box.innerHTML = '<p class="text-[11px] text-slate-400 text-center py-8">' +
+      '이 학생의 생기부와 겹치는 기출이 없습니다. 위 공통 문항으로 준비하세요.</p>';
+    return;
+  }
+
+  box.innerHTML = scored.slice(0, 20).map(function (x) {
+    const r = x.r;
+    const ev = [];
+    state.activities.forEach(function (a) {
+      if (ev.length >= 2) return;
+      const secOk = !r.sections.length || r.sections.indexOf(a.section) >= 0;
+      if (!secOk) return;
+      a.sentences.forEach(function (s) {
+        if (ev.length >= 2) return;
+        for (let i = 0; i < x.hitTags.length; i++) {
+          if (s.text.indexOf(x.hitTags[i]) >= 0) { ev.push({ a: a, s: s }); return; }
+        }
+      });
+    });
+
+    return '<div class="rounded-xl border border-slate-200 p-3 hover:border-amber-300 transition-colors">' +
+      '<div class="flex items-start justify-between gap-2 mb-1.5">' +
+        '<div class="flex items-center gap-1.5 flex-wrap">' +
+          '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-bold bg-amber-100 text-amber-800">' + esc(r.u) + '</span>' +
+          '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-slate-100 text-slate-600">' + esc(r.dept) + '</span>' +
+          '<span class="px-1.5 py-0.5 rounded text-[9.5px] font-semibold bg-indigo-50 text-indigo-700">' + esc(r.type) + '</span>' +
+        '</div>' +
+        '<span class="text-[9.5px] text-slate-400 flex-shrink-0">검증 · ' + esc(r.verify) + '</span>' +
+      '</div>' +
+      '<p class="text-[11.5px] text-slate-800 leading-relaxed">' + esc(r.q) + '</p>' +
+      (x.hitTags.length ? '<div class="flex flex-wrap gap-1 mt-1.5">' + x.hitTags.slice(0, 6).map(function (t) {
+          return '<span class="px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 text-[9.5px] font-semibold border border-amber-200/60">#' + esc(t) + '</span>';
+        }).join("") + '</div>' : "") +
+      (ev.length ? '<div class="mt-2 pt-2 border-t border-slate-100">' +
+          '<p class="text-[9.5px] font-bold text-slate-500 mb-1">이 학생이 답변에 쓸 근거</p>' +
+          ev.map(function (e) {
+            return '<p class="text-[10.5px] text-slate-600 leading-snug mb-0.5">' +
+              '<span class="font-semibold text-slate-800">[' + esc(e.a.grade) + '학년 ' + esc(e.a.title) + ']</span> ' +
+              esc(e.s.text.slice(0, 90)) + (e.s.text.length > 90 ? "…" : "") + '</p>';
+          }).join("") + '</div>'
+        : '<p class="mt-2 pt-2 border-t border-slate-100 text-[10px] text-rose-600">' +
+          '생기부에서 이 질문에 쓸 근거를 찾지 못했습니다. 답변을 준비하기 어렵다면 이 주제는 피하는 편이 낫습니다.</p>') +
+      '</div>';
+  }).join("");
+};
+
+/** 미이수 핵심과목은 실제로 면접에서 사유를 묻는다. */
+Render.interviewGap = function () {
+  const box = $("interview-gap");
+  if (!box) return;
+  const sel = $("select-target-major");
+  const std = MAJORS[sel && sel.value];
+  const list = (state.transcript && state.transcript.courses) || [];
+  if (!std || !list.length) { box.classList.add("hidden"); return; }
+
+  const missing = std.requiredCourses.filter(function (want) {
+    for (let i = 0; i < list.length; i++) if (courseMatches(want, list[i].name)) return false;
+    return true;
+  });
+  if (!missing.length) { box.classList.add("hidden"); return; }
+
+  box.classList.remove("hidden");
+  box.innerHTML =
+    '<p class="text-[11px] font-bold text-rose-900 mb-1"><i class="fa-solid fa-circle-exclamation mr-1"></i>미이수 핵심과목 — 실제로 묻습니다</p>' +
+    '<p class="text-[10.5px] text-rose-800/90 leading-relaxed">' +
+      '<strong>' + esc(missing.join(", ")) + '</strong> 이(가) 이수 목록에 없습니다. ' +
+      '대학은 이런 경우 사유를 직접 묻습니다. 실제 출제된 문항: ' +
+      '<span class="italic">"물리학Ⅰ을 이수하고 물리학Ⅱ는 이수하지 않았습니다. 이수하지 않은 이유가 있다면 설명해 주세요."</span> (동국대)' +
+    '</p>' +
+    '<p class="text-[10px] text-rose-700/80 mt-1.5">학교 미개설·시간표 충돌이라면 그 사실과 함께 <strong>어떻게 보완했는지</strong>를 준비해야 합니다.</p>';
+};
+
+/** 서류 진단에서 얇게 나온 요소는 면접에서도 얇아진다. 그것을 미리 알린다. */
+Render.interviewAnchor = function () {
+  const box = $("itv-anchor");
+  if (!box) return;
+  const cr = state.criteria ? Criteria.current() : null;
+  if (!cr || !cr.rows) { box.classList.add("hidden"); return; }
+  box.classList.remove("hidden");
+
+  const weak = cr.rows.filter(function (e) { return e.verdict === "보완 필요"; })
+                      .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
+  const strong = cr.rows.filter(function (e) { return e.verdict === "강점"; })
+                      .sort(function (a, b) { return (b.w || 0) - (a.w || 0); });
+
+  box.innerHTML =
+    '<p class="text-[11px] font-bold text-slate-900 mb-1.5"><i class="fa-solid fa-anchor mr-1 text-slate-400"></i>서류 진단과 이어 보기</p>' +
+    (strong.length
+      ? '<p class="text-[10.5px] text-slate-600 leading-relaxed mb-1.5">' +
+        '<strong class="text-emerald-700">' + esc(strong[0].name) + '</strong>이 이 전형에서 두꺼운 축입니다. ' +
+        '면접에서 확인 질문이 오면 여기서 답하세요.</p>' : "") +
+    (weak.length
+      ? '<p class="text-[10.5px] text-slate-600 leading-relaxed">' +
+        '<strong class="text-rose-700">' + esc(weak[0].name) + '</strong>은 근거가 얇습니다(' + weak[0].n + '문장, 심화 ' + weak[0].depth + '건). ' +
+        '이 쪽으로 질문이 들어오면 답이 짧아집니다. <strong>미리 사례 하나를 정해 두십시오.</strong></p>'
+      : '<p class="text-[10.5px] text-slate-600 leading-relaxed">비중 대비 크게 얇은 요소는 없습니다. 어느 쪽으로 물어도 답할 근거가 있습니다.</p>');
+};
+
 /* ------------------------------------------------------------------ BOOT */
 document.addEventListener("DOMContentLoaded", UI.init);
 
-return { VERSION: VERSION, state: state, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
+return { VERSION: VERSION, state: state, Nav: Nav, Info: Info, Views: Views, Criteria: Criteria, Linkage: Linkage, Parse: Parse, Classify: Classify, Stats: Stats, Render: Render, Export: Export, UI: UI, TAXONOMY: TAXONOMY, MAJORS: MAJORS };
 })();
-</script>
+if (typeof window !== "undefined") { window.App = App; window.Criteria = App.Criteria; }
+
+  </script>
 </body>
 </html>
